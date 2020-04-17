@@ -1,0 +1,12 @@
+[package]
+name = "slots"
+version = "0.1.0"
+authors = ["Dániel Buga <bugadani@gmail.com>"]
+edition = "2018"
+categories = [
+    "data-structures",
+    "no-std"
+]
+
+[dependencies]
+generic-array = "0.14.1"
