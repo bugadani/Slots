@@ -10,6 +10,9 @@ categories = [
     "data-structures",
     "no-std"
 ]
+exclude = [
+    ".github/*",
+]
 
 [dependencies]
 generic-array = "0.14.1"
