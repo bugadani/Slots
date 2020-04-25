@@ -1,6 +1,6 @@
 [package]
 name = "slots"
-version = "0.1.0"
+version = "0.1.1"
 license = "MIT"
 homepage = "https://github.com/bugadani/Slots"
 description = "Fixed size data structure with constant-time operations"
