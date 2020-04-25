@@ -13,7 +13,24 @@ jobs:
 
     steps:
     - uses: actions/checkout@v2
-    - name: Build
-      run: cargo build --verbose
+    - uses: actions-rs/toolchain@v1
+      with:
+        toolchain: nightly
+        override: true
     - name: Run tests
-      run: cargo test --verbose
+      run: |
+        cargo build --verbose
+        cargo test --verbose
+      env:
+        CARGO_INCREMENTAL: '0'
+        RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads'
+    - name: Grcov
+      run: |
+        cargo install grcov
+        grcov ./target/debug/ -s . -t lcov --llvm --branch --ignore-not-existing -o ./lcov.info
+    - uses: codecov/codecov-action@v1
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        file: ./lcov.info
+        flags: unittests
+        fail_ci_if_error: true
