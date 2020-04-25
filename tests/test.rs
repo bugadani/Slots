@@ -73,7 +73,6 @@ fn elements_can_be_modified_using_key() {
     assert_eq!(7, slots.read(&k, |&w| w));
 }
 
-
 #[test]
 fn store_returns_err_when_full() {
     let mut slots: Slots<u8, U1> = Slots::new();
