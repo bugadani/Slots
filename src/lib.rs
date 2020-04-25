@@ -84,18 +84,18 @@ pub struct Slots<IT, N>
     where N: ArrayLength<Option<IT>> + ArrayLength<usize> + Unsigned {
     items: GenericArray<Option<IT>, N>,
     free_list: GenericArray<usize, N>,
-    free_idx: usize
+    free_count: usize
 }
 
 impl<IT, N> Slots<IT, N>
     where N: ArrayLength<Option<IT>> + ArrayLength<usize> + Unsigned {
     pub fn new() -> Self {
-        let last_idx = N::to_usize() - 1;
+        let size = N::to_usize();
 
         Self {
             items: GenericArray::default(),
-            free_list: GenericArray::generate(|i: usize| last_idx - i),
-            free_idx: last_idx
+            free_list: GenericArray::generate(|i: usize| size - i - 1),
+            free_count: size
         }
     }
 
@@ -104,20 +104,20 @@ impl<IT, N> Slots<IT, N>
     }
 
     pub fn count(&self) -> usize {
-        self.capacity() - self.free_idx - 1
+        self.capacity() - self.free_count
     }
 
     fn free(&mut self, idx: usize) {
-        self.free_list[self.free_idx] = idx;
-        self.free_idx += 1;
+        self.free_list[self.free_count] = idx;
+        self.free_count += 1;
     }
 
     fn alloc(&mut self) -> Option<usize> {
         if self.count() == self.capacity() {
             None
         } else {
-            let i = self.free_list[self.free_idx];
-            self.free_idx -= 1;
+            let i = self.free_list[self.free_count - 1];
+            self.free_count -= 1;
             Some(i)
         }
     }

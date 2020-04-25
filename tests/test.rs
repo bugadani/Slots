@@ -10,6 +10,22 @@ fn key_can_be_used_to_read_value() {
 }
 
 #[test]
+fn size_can_be_1() {
+    let mut slots: Slots<_, U1> = Slots::new();
+    let k1 = slots.store(5).unwrap();
+
+    assert_eq!(5, slots.read(&k1, |&w| w));
+
+    assert_eq!(1, slots.count());
+    slots.take(k1);
+    assert_eq!(0, slots.count());
+
+    // test that we can fill the storage again
+    slots.store(6);
+    assert_eq!(1, slots.count());
+}
+
+#[test]
 fn index_can_be_used_to_read_value() {
     let mut slots: Slots<_, U8> = Slots::new();
 
@@ -55,4 +71,16 @@ fn elements_can_be_modified_using_key() {
         *w
     }));
     assert_eq!(7, slots.read(&k, |&w| w));
+}
+
+
+#[test]
+fn store_returns_err_when_full() {
+    let mut slots: Slots<u8, U1> = Slots::new();
+
+    slots.store(5);
+
+    let k2 = slots.store(5);
+
+    assert!(k2.is_err());
 }

@@ -1,2 +1,4 @@
 /target
+/coverage
 Cargo.lock
+coverage.bat
