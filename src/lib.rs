@@ -142,21 +142,21 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
-    pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: Fn(&IT) -> T {
+    pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
         match self.try_read(key.index, function) {
             Some(t) => t,
             None => panic!()
         }
     }
 
-    pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: Fn(&IT) -> T {
+    pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
         match &self.items[key] {
             Some(item) => Some(function(&item)),
             None => None
         }
     }
 
-    pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: Fn(&mut IT) -> T {
+    pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
         match self.items[key.index] {
             Some(ref mut item) => function(item),
             None => panic!()
