@@ -84,6 +84,19 @@ fn store_returns_err_when_full() {
     assert!(k2.is_err());
 }
 
+#[test]
+#[should_panic(expected = "Key used in wrong instance")]
+fn use_across_slots() {
+    let mut a: Slots<u8, U4> = Slots::new();
+    let mut b: Slots<u8, U4> = Slots::new();
+
+    let k = a.store(5).expect("There should be room");
+    // Store an element in b so we don't get a different panic
+    let _ = b.store(6).expect("There should be room");
+
+    b.take(k);
+}
+
 #[should_panic(expected = "assertion failed: `(left == right)`\n  left: `792`,\n right: `536`")]
 #[test]
 /// Verify some size bounds: an N long array over IT is not larger than 3 usize + N * IT (as long
