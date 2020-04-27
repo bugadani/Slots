@@ -1,6 +1,6 @@
 Unreleased
 ==========
-* Allow using FnOnce closures in `try_read`, `read` and `modify` (@chrysn)
+* Allow using FnOnce closures in `try_read`, `read` and `modify` [@chrysn](https://github.com/chrysn)
 
 0.1.1
 =====
