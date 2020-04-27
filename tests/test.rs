@@ -83,3 +83,24 @@ fn store_returns_err_when_full() {
 
     assert!(k2.is_err());
 }
+
+#[test]
+/// Verify some size bounds: an N long array over IT is not larger than 3 usize + N * IT (as long
+/// as IT is larger than two usize and has two niches)
+//
+// Failes until https://github.com/rust-lang/rust/issues/46213 is resolved (possibly,
+// https://github.com/rust-lang/rust/pull/70477 is sufficient)
+fn is_compact() {
+    struct TwoNichesIn16Byte {
+        n1: u64,
+        n2: u32,
+        n3: u16,
+        n4: u8,
+        b: bool,
+    }
+
+    assert_eq!(core::mem::size_of::<TwoNichesIn16Byte>(), 16);
+
+    let slots: Slots<TwoNichesIn16Byte, U32> = Slots::new();
+    assert_eq!(core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(), 32 * 16 + 3 * core::mem::size_of::<usize>());
+}
