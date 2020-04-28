@@ -138,10 +138,9 @@ pub struct Slots<IT, N, A>
           A: access_mode::AccessMode {
     id: A::ObjectId,
     items: GenericArray<Entry<IT>, N>,
-    // Could be optimized by making it just usize and relying on free_count to determine its
-    // validity
+    // Could be optimized by making it just usize and relying on count to determine its validity
     next_free: Option<usize>,
-    free_count: usize,
+    count: usize,
     _mode_marker: PhantomData<A>
 }
 
@@ -155,7 +154,7 @@ impl<IT, N, A> Slots<IT, N, A>
             id: A::new_obj_id(),
             items: GenericArray::generate(|i| Entry(i.checked_sub(1).map(EntryInner::EmptyNext).unwrap_or(EntryInner::EmptyLast))),
             next_free: size.checked_sub(1),
-            free_count: size,
+            count: 0,
             _mode_marker: PhantomData
         }
     }
@@ -165,7 +164,7 @@ impl<IT, N, A> Slots<IT, N, A>
     }
 
     pub fn count(&self) -> usize {
-        self.capacity() - self.free_count
+        self.count
     }
 
     fn free(&mut self, idx: usize) {
@@ -174,7 +173,7 @@ impl<IT, N, A> Slots<IT, N, A>
             None => Entry(EntryInner::EmptyLast),
         };
         self.next_free = Some(idx);
-        self.free_count += 1;
+        self.count -= 1;
     }
 
     fn alloc(&mut self) -> Option<usize> {
@@ -184,7 +183,7 @@ impl<IT, N, A> Slots<IT, N, A>
             EntryInner::EmptyLast => None,
             _ => unreachable!("Non-empty item in entry behind free chain"),
         };
-        self.free_count -= 1;
+        self.count += 1;
         Some(index)
     }
 
