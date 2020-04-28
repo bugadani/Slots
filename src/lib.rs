@@ -258,7 +258,7 @@ impl<IT, N> Slots<IT, N, Relaxed>
         }
     }
 
-    pub fn take(&mut self, key: Key<IT, N>) -> Option<IT> {
+    pub fn take(&mut self, idx: usize) -> Option<IT> {
         let taken = core::mem::replace(&mut self.items[key.index], Entry(EntryInner::EmptyLast));
         match taken.0 {
             EntryInner::Used(item) => {
@@ -269,15 +269,15 @@ impl<IT, N> Slots<IT, N, Relaxed>
         }
     }
 
-    pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> Option<T> where F: FnOnce(&mut IT) -> T {
-        match self.items[key.index].0 {
+    pub fn modify<T, F>(&mut self, idx: usize, function: F) -> Option<T> where F: FnOnce(&mut IT) -> T {
+        match self.items[idx].0 {
             EntryInner::Used(ref mut item) => Some(function(item)),
             _ => None
         }
     }
 
-    pub fn read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
-        match &self.items[key].0 {
+    pub fn read<T, F>(&self, idx: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+        match &self.items[idx].0 {
             EntryInner::Used(item) => Some(function(&item)),
             _ => None
         }
