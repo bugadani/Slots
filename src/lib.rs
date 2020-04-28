@@ -50,6 +50,7 @@
 #![cfg_attr(not(test), no_std)]
 
 use core::marker::PhantomData;
+#[cfg(feature = "verify_owner")]
 use core::sync::atomic::{AtomicU64, Ordering};
 use generic_array::{GenericArray, sequence::GenericSequence};
 
