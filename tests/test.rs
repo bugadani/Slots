@@ -84,12 +84,14 @@ fn store_returns_err_when_full() {
     assert!(k2.is_err());
 }
 
+#[should_panic()]
 #[test]
 /// Verify some size bounds: an N long array over IT is not larger than 3 usize + N * IT (as long
 /// as IT is larger than two usize and has two niches)
 //
-// Failes until https://github.com/rust-lang/rust/issues/46213 is resolved (possibly,
-// https://github.com/rust-lang/rust/pull/70477 is sufficient)
+// Fails until https://github.com/rust-lang/rust/issues/46213 is resolved (possibly,
+// https://github.com/rust-lang/rust/pull/70477 is sufficient). When this starts not failing any
+// more, be happy, remove the panic, and figure out how to skip the test on older Rust versions.
 fn is_compact() {
     struct TwoNichesIn16Byte {
         n1: u64,
