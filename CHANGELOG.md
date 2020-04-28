@@ -1,5 +1,6 @@
 Unreleased
 ==========
+* Allow compiler to reduce memory footprint if possible [@chrysn](https://github.com/chrysn)
 * Allow using FnOnce closures in `try_read`, `read` and `modify` [@chrysn](https://github.com/chrysn)
 
 0.1.1
