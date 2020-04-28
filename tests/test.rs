@@ -33,9 +33,9 @@ fn index_can_be_used_to_read_value() {
     slots.store(6).unwrap();
     slots.store(7).unwrap();
 
-    assert_eq!(5, slots.try_read(0, |&w| w).unwrap());
-    assert_eq!(6, slots.try_read(1, |&w| w).unwrap());
-    assert_eq!(7, slots.try_read(2, |&w| w).unwrap());
+    assert_eq!(5, slots.try_read(7, |&w| w).unwrap());
+    assert_eq!(6, slots.try_read(6, |&w| w).unwrap());
+    assert_eq!(7, slots.try_read(5, |&w| w).unwrap());
 }
 
 #[test]
@@ -82,4 +82,55 @@ fn store_returns_err_when_full() {
     let k2 = slots.store(5);
 
     assert!(k2.is_err());
+}
+
+#[should_panic(expected = "assertion failed: `(left == right)`\n  left: `792`,\n right: `536`")]
+#[test]
+/// Verify some size bounds: an N long array over IT is not larger than 3 usize + N * IT (as long
+/// as IT is larger than two usize and has two niches)
+//
+// Fails until https://github.com/rust-lang/rust/issues/46213 is resolved (possibly,
+// https://github.com/rust-lang/rust/pull/70477 is sufficient). When this starts not failing any
+// more, be happy, remove the panic, and figure out how to skip the test on older Rust versions.
+// (If left just goes down but does not reach right, that should be investigated further, as it
+// indicates that the optimization was implemented incompletely, or it turns out it is not possible
+// for some reasons and needs fixing in the code).
+fn is_compact() {
+    #[allow(unused)]
+    struct TwoNichesIn16Byte {
+        n1: u64,
+        n2: u32,
+        n3: u16,
+        n4: u8,
+        b: bool,
+    }
+
+    assert_eq!(core::mem::size_of::<TwoNichesIn16Byte>(), 16);
+
+    assert_eq!(core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(), 32 * 16 + 3 * core::mem::size_of::<usize>());
+}
+
+#[test]
+fn capacity_and_count() {
+    let mut slots: Slots<u8, U4> = Slots::new();
+
+    assert_eq!(slots.capacity(), 4);
+    assert_eq!(slots.count(), 0);
+
+    let k1 = slots.store(1).unwrap();
+    let k2 = slots.store(2).unwrap();
+
+    assert_eq!(slots.count(), 2);
+
+    let k3 = slots.store(3).unwrap();
+    let k4 = slots.store(4).unwrap();
+
+    assert_eq!(slots.count(), 4);
+
+    slots.take(k1);
+    slots.take(k2);
+    slots.take(k3);
+    slots.take(k4);
+
+    assert_eq!(slots.count(), 0);
 }
