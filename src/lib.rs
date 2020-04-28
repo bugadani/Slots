@@ -50,8 +50,6 @@
 #![cfg_attr(not(test), no_std)]
 
 use core::marker::PhantomData;
-#[cfg(feature = "verify_owner")]
-use core::sync::atomic::{AtomicUsize, Ordering};
 use generic_array::{GenericArray, sequence::GenericSequence};
 
 pub use generic_array::typenum::consts;
@@ -59,16 +57,50 @@ pub use generic_array::ArrayLength;
 
 use generic_array::typenum::Unsigned;
 
-pub struct Relaxed {}
-pub struct Strict {}
-pub trait AccessMode {}
+mod access_mode {
+    pub struct Relaxed {}
+    pub struct Strict {}
 
-impl AccessMode for Relaxed {}
-impl AccessMode for Strict {}
+    pub trait AccessMode {
+        type ObjectId;
 
-pub struct Key<IT, N> {
-    #[cfg(feature = "verify_owner")]
-    owner_id: usize,
+        fn new_obj_id() -> Self::ObjectId;
+    }
+
+    impl AccessMode for Relaxed {
+        type ObjectId = ();
+
+        fn new_obj_id() -> Self::ObjectId {
+            ()
+        }
+    }
+    impl AccessMode for Strict {
+        #[cfg(feature = "verify_owner")]
+        type ObjectId = usize;
+
+        #[cfg(not(feature = "verify_owner"))]
+        type ObjectId = ();
+
+        #[cfg(feature = "verify_owner")]
+        fn new_obj_id() -> Self::ObjectId {
+            use core::sync::atomic::{AtomicUsize, Ordering};
+            static COUNTER: AtomicUsize = AtomicUsize::new(0);
+
+            COUNTER.fetch_add(1, Ordering::Relaxed)
+        }
+
+        #[cfg(not(feature = "verify_owner"))]
+        fn new_obj_id() -> Self::ObjectId {
+            ()
+        }
+    }
+}
+
+pub use access_mode::{Strict, Relaxed};
+
+pub struct Key<IT, N>
+    where N: ArrayLength<Entry<IT>> + Unsigned {
+    owner_id: <Strict as access_mode::AccessMode>::ObjectId,
     index: usize,
     _item_marker: PhantomData<IT>,
     _size_marker: PhantomData<N>
@@ -78,7 +110,6 @@ impl<IT, N> Key<IT, N>
     where N: ArrayLength<Entry<IT>> + Unsigned {
     fn new(owner: &Slots<IT, N, Strict>, idx: usize) -> Self {
         Self {
-            #[cfg(feature = "verify_owner")]
             owner_id: owner.id,
             index: idx,
             _item_marker: PhantomData,
@@ -104,9 +135,8 @@ enum EntryInner<IT> {
 // Values can be read by anyone but can only be modified using the key.
 pub struct Slots<IT, N, A>
     where N: ArrayLength<Entry<IT>> + Unsigned,
-          A: AccessMode {
-    #[cfg(feature = "verify_owner")]
-    id: usize,
+          A: access_mode::AccessMode {
+    id: A::ObjectId,
     items: GenericArray<Entry<IT>, N>,
     // Could be optimized by making it just usize and relying on free_count to determine its
     // validity
@@ -115,22 +145,14 @@ pub struct Slots<IT, N, A>
     _mode_marker: PhantomData<A>
 }
 
-#[cfg(feature = "verify_owner")]
-fn new_instance_id() -> usize {
-    static COUNTER: AtomicUsize = AtomicUsize::new(0);
-
-    COUNTER.fetch_add(1, Ordering::Relaxed)
-}
-
 impl<IT, N, A> Slots<IT, N, A>
     where N: ArrayLength<Entry<IT>> + Unsigned,
-          A: AccessMode {
+          A: access_mode::AccessMode {
     pub fn new() -> Self {
         let size = N::to_usize();
 
         Self {
-            #[cfg(feature = "verify_owner")]
-            id: new_instance_id(),
+            id: A::new_obj_id(),
             items: GenericArray::generate(|i| Entry(i.checked_sub(1).map(EntryInner::EmptyNext).unwrap_or(EntryInner::EmptyLast))),
             next_free: size.checked_sub(1),
             free_count: size,
@@ -170,13 +192,8 @@ impl<IT, N, A> Slots<IT, N, A>
 impl<IT, N> Slots<IT, N, Strict>
     where N: ArrayLength<Entry<IT>> + Unsigned {
 
-    #[cfg(feature = "verify_owner")]
     fn verify_key(&self, key: &Key<IT, N>) {
         assert!(key.owner_id == self.id, "Key used in wrong instance");
-    }
-
-    #[cfg(not(feature = "verify_owner"))]
-    fn verify_key(&self, _key: &Key<IT, N>) {
     }
 
     pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {

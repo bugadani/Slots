@@ -1,5 +1,6 @@
-use slots::{Slots, Strict};
+use slots::{Slots, Strict, Relaxed};
 use slots::consts::*;
+use core::mem::size_of;
 
 #[test]
 fn key_can_be_used_to_read_value() {
@@ -132,13 +133,13 @@ fn is_compact() {
         b: bool,
     }
 
-    assert_eq!(core::mem::size_of::<TwoNichesIn16Byte>(), 16);
+    assert_eq!(size_of::<TwoNichesIn16Byte>(), 16);
 
-    let mut expected_size = 32 * 16 + 3 * core::mem::size_of::<usize>();
+    let mut expected_size = 32 * 16 + 3 * size_of::<usize>();
     if cfg!(feature = "verify_owner") {
-        expected_size += core::mem::size_of::<usize>(); // an extra usize for object id
+        expected_size += size_of::<usize>(); // an extra usize for object id
     }
-    assert_eq!(core::mem::size_of::<Slots<TwoNichesIn16Byte, U32, Strict>>(), expected_size, "Compiled size does not match expected");
+    assert_eq!(size_of::<Slots<TwoNichesIn16Byte, U32, Strict>>(), expected_size, "Compiled size does not match expected");
 }
 
 #[test]
@@ -164,4 +165,13 @@ fn capacity_and_count() {
     slots.take(k4);
 
     assert_eq!(slots.count(), 0);
+}
+
+#[test]
+fn relaxed_instance_does_not_have_object_id() {
+    if cfg!(feature = "verify_owner") {
+        assert_eq!(size_of::<Slots<u8, U4, Strict>>(), size_of::<Slots<u8, U4, Relaxed>>() + size_of::<usize>());
+    } else {
+        assert_eq!(size_of::<Slots<u8, U4, Strict>>(), size_of::<Slots<u8, U4, Relaxed>>());
+    }
 }
