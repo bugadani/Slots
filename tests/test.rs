@@ -84,7 +84,7 @@ fn store_returns_err_when_full() {
     assert!(k2.is_err());
 }
 
-#[should_panic()]
+#[should_panic(expected = "assertion failed: `(left == right)`\n  left: `792`,\n right: `536`")]
 #[test]
 /// Verify some size bounds: an N long array over IT is not larger than 3 usize + N * IT (as long
 /// as IT is larger than two usize and has two niches)
@@ -92,7 +92,11 @@ fn store_returns_err_when_full() {
 // Fails until https://github.com/rust-lang/rust/issues/46213 is resolved (possibly,
 // https://github.com/rust-lang/rust/pull/70477 is sufficient). When this starts not failing any
 // more, be happy, remove the panic, and figure out how to skip the test on older Rust versions.
+// (If left just goes down but does not reach right, that should be investigated further, as it
+// indicates that the optimization was implemented incompletely, or it turns out it is not possible
+// for some reasons and needs fixing in the code).
 fn is_compact() {
+    #[allow(unused)]
     struct TwoNichesIn16Byte {
         n1: u64,
         n2: u32,
@@ -103,6 +107,5 @@ fn is_compact() {
 
     assert_eq!(core::mem::size_of::<TwoNichesIn16Byte>(), 16);
 
-    let slots: Slots<TwoNichesIn16Byte, U32> = Slots::new();
     assert_eq!(core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(), 32 * 16 + 3 * core::mem::size_of::<usize>());
 }
