@@ -136,7 +136,7 @@ fn is_compact() {
 
     let mut expected_size = 32 * 16 + 3 * core::mem::size_of::<usize>();
     if cfg!(feature = "verify_owner") {
-        expected_size += 8; // an extra u64
+        expected_size += core::mem::size_of::<usize>(); // an extra usize for object id
     }
     assert_eq!(core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(), expected_size, "Compiled size does not match expected");
 }

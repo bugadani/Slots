@@ -51,7 +51,7 @@
 
 use core::marker::PhantomData;
 #[cfg(feature = "verify_owner")]
-use core::sync::atomic::{AtomicU64, Ordering};
+use core::sync::atomic::{AtomicUsize, Ordering};
 use generic_array::{GenericArray, sequence::GenericSequence};
 
 pub use generic_array::typenum::consts;
@@ -61,7 +61,7 @@ use generic_array::typenum::Unsigned;
 
 pub struct Key<IT, N> {
     #[cfg(feature = "verify_owner")]
-    owner_id: u64,
+    owner_id: usize,
     index: usize,
     _item_marker: PhantomData<IT>,
     _size_marker: PhantomData<N>
@@ -98,7 +98,7 @@ enum EntryInner<IT> {
 pub struct Slots<IT, N>
     where N: ArrayLength<Entry<IT>> + Unsigned {
     #[cfg(feature = "verify_owner")]
-    id: u64,
+    id: usize,
     items: GenericArray<Entry<IT>, N>,
     // Could be optimized by making it just usize and relying on free_count to determine its
     // validity
@@ -107,12 +107,10 @@ pub struct Slots<IT, N>
 }
 
 #[cfg(feature = "verify_owner")]
-fn new_instance_id() -> u64 {
-    static COUNTER: AtomicU64 = AtomicU64::new(0);
+fn new_instance_id() -> usize {
+    static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
-    let cnt = COUNTER.fetch_add(1, Ordering::Relaxed);
-
-    cnt
+    COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
 impl<IT, N> Slots<IT, N>
