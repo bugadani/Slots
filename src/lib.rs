@@ -77,16 +77,13 @@ impl<IT, N> Key<IT, N> {
     }
 }
 
-/// Module to hide the Entry type which needs to be public due to the generic-array internals.
-mod entry {
-    pub enum Entry<IT> {
-        Used(IT),
-        EmptyNext(usize),
-        EmptyLast
-    }
-}
+pub struct Entry<IT>(EntryInner<IT>);
 
-use entry::Entry;
+enum EntryInner<IT> {
+    Used(IT),
+    EmptyNext(usize),
+    EmptyLast
+}
 
 // Data type that stores values and returns a key that can be used to manipulate
 // the stored values.
@@ -106,7 +103,7 @@ impl<IT, N> Slots<IT, N>
         let size = N::to_usize();
 
         Self {
-            items: GenericArray::generate(|i| i.checked_sub(1).map(Entry::EmptyNext).unwrap_or(Entry::EmptyLast)),
+            items: GenericArray::generate(|i| Entry(i.checked_sub(1).map(EntryInner::EmptyNext).unwrap_or(EntryInner::EmptyLast))),
             next_free: size.checked_sub(1),
             free_count: size
         }
@@ -122,8 +119,8 @@ impl<IT, N> Slots<IT, N>
 
     fn free(&mut self, idx: usize) {
         self.items[idx] = match self.next_free {
-            Some(n) => Entry::EmptyNext(n),
-            None => Entry::EmptyLast
+            Some(n) => Entry(EntryInner::EmptyNext(n)),
+            None => Entry(EntryInner::EmptyLast),
         };
         self.next_free = Some(idx);
         self.free_count += 1;
@@ -131,9 +128,9 @@ impl<IT, N> Slots<IT, N>
 
     fn alloc(&mut self) -> Option<usize> {
         let index = self.next_free?;
-        self.next_free = match self.items[index] {
-            Entry::EmptyNext(n) => Some(n),
-            Entry::EmptyLast => None,
+        self.next_free = match self.items[index].0 {
+            EntryInner::EmptyNext(n) => Some(n),
+            EntryInner::EmptyLast => None,
             _ => unreachable!("Non-empty item in entry behind free chain"),
         };
         self.free_count -= 1;
@@ -143,7 +140,7 @@ impl<IT, N> Slots<IT, N>
     pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
         match self.alloc() {
             Some(i) => {
-                self.items[i] = Entry::Used(item);
+                self.items[i] = Entry(EntryInner::Used(item));
                 Ok(Key::new(i))
             }
             None => Err(item)
@@ -151,10 +148,10 @@ impl<IT, N> Slots<IT, N>
     }
 
     pub fn take(&mut self, key: Key<IT, N>) -> IT {
-        let taken = core::mem::replace(&mut self.items[key.index], Entry::EmptyLast);
+        let taken = core::mem::replace(&mut self.items[key.index], Entry(EntryInner::EmptyLast));
         self.free(key.index);
-        match taken {
-            Entry::Used(item) => item,
+        match taken.0 {
+            EntryInner::Used(item) => item,
             _ => panic!()
         }
     }
@@ -167,15 +164,15 @@ impl<IT, N> Slots<IT, N>
     }
 
     pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
-        match &self.items[key] {
-            Entry::Used(item) => Some(function(&item)),
+        match &self.items[key].0 {
+            EntryInner::Used(item) => Some(function(&item)),
             _ => None
         }
     }
 
     pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
-        match self.items[key.index] {
-            Entry::Used(ref mut item) => function(item),
+        match self.items[key.index].0 {
+            EntryInner::Used(ref mut item) => function(item),
             _ => panic!()
         }
     }
