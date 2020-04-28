@@ -63,7 +63,14 @@ pub struct Key<IT, N> {
     _size_marker: PhantomData<N>
 }
 
-impl<IT, N> Key<IT, N> {
+mod sealed {
+    pub trait Key {
+        fn new(idx: usize) -> Self;
+        fn index(&self) -> usize;
+    }
+}
+
+impl<IT, N> sealed::Key for Key<IT, N> {
     fn new(idx: usize) -> Self {
         Self {
             index: idx,
@@ -72,6 +79,15 @@ impl<IT, N> Key<IT, N> {
         }
     }
 
+    fn index(&self) -> usize {
+        self.index
+    }
+}
+
+impl<IT, N> Key<IT, N> {
+    // Convenience duplicate to a) make it usable by applications without any `use slots::...::Key`
+    // method, and b) to spare everyone the hassle of having a public and a sealed trait around
+    // Key.
     pub fn index(&self) -> usize {
         self.index
     }
@@ -80,14 +96,15 @@ impl<IT, N> Key<IT, N> {
 // Data type that stores values and returns a key that can be used to manipulate
 // the stored values.
 // Values can be read by anyone but can only be modified using the key.
-pub struct Slots<IT, N>
+pub struct Slots<IT, N, K=Key<IT, N>>
     where N: ArrayLength<Option<IT>> + ArrayLength<usize> + Unsigned {
     items: GenericArray<Option<IT>, N>,
     free_list: GenericArray<usize, N>,
-    free_count: usize
+    free_count: usize,
+    keys: PhantomData<K>
 }
 
-impl<IT, N> Slots<IT, N>
+impl<IT, N, K: sealed::Key> Slots<IT, N, K>
     where N: ArrayLength<Option<IT>> + ArrayLength<usize> + Unsigned {
     pub fn new() -> Self {
         let size = N::to_usize();
@@ -95,7 +112,8 @@ impl<IT, N> Slots<IT, N>
         Self {
             items: GenericArray::default(),
             free_list: GenericArray::generate(|i: usize| size - i - 1),
-            free_count: size
+            free_count: size,
+            keys: PhantomData
         }
     }
 
@@ -122,28 +140,28 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
-    pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
+    pub fn store(&mut self, item: IT) -> Result<K, IT> {
         match self.alloc() {
             Some(i) => {
                 self.items[i] = Some(item);
-                Ok(Key::new(i))
+                Ok(K::new(i))
             }
             None => Err(item)
         }
     }
 
-    pub fn take(&mut self, key: Key<IT, N>) -> IT {
-        match self.items[key.index].take() {
+    pub fn take(&mut self, key: K) -> IT {
+        match self.items[key.index()].take() {
             Some(item) => {
-                self.free(key.index);
+                self.free(key.index());
                 item
             }
             None => panic!()
         }
     }
 
-    pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
-        match self.try_read(key.index, function) {
+    pub fn read<T, F>(&self, key: &K, function: F) -> T where F: FnOnce(&IT) -> T {
+        match self.try_read(key.index(), function) {
             Some(t) => t,
             None => panic!()
         }
@@ -156,8 +174,8 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
-    pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
-        match self.items[key.index] {
+    pub fn modify<T, F>(&mut self, key: &K, function: F) -> T where F: FnOnce(&mut IT) -> T {
+        match self.items[key.index()] {
             Some(ref mut item) => function(item),
             None => panic!()
         }
