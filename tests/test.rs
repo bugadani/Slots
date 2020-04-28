@@ -109,3 +109,28 @@ fn is_compact() {
 
     assert_eq!(core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(), 32 * 16 + 3 * core::mem::size_of::<usize>());
 }
+
+#[test]
+fn capacity_and_count() {
+    let mut slots: Slots<u8, U4> = Slots::new();
+
+    assert_eq!(slots.capacity(), 4);
+    assert_eq!(slots.count(), 0);
+
+    let k1 = slots.store(1).unwrap();
+    let k2 = slots.store(2).unwrap();
+
+    assert_eq!(slots.count(), 2);
+
+    let k3 = slots.store(3).unwrap();
+    let k4 = slots.store(4).unwrap();
+
+    assert_eq!(slots.count(), 4);
+
+    slots.take(k1);
+    slots.take(k2);
+    slots.take(k3);
+    slots.take(k4);
+
+    assert_eq!(slots.count(), 0);
+}
