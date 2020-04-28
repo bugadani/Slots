@@ -152,14 +152,14 @@ impl<IT, N> Slots<IT, N>
         self.free(key.index);
         match taken.0 {
             EntryInner::Used(item) => item,
-            _ => panic!()
+            _ => unreachable!("Invalid key")
         }
     }
 
     pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
         match self.try_read(key.index, function) {
             Some(t) => t,
-            None => panic!()
+            None => unreachable!("Invalid key")
         }
     }
 
@@ -173,7 +173,7 @@ impl<IT, N> Slots<IT, N>
     pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
         match self.items[key.index].0 {
             EntryInner::Used(ref mut item) => function(item),
-            _ => panic!()
+            _ => unreachable!("Invalid key")
         }
     }
 }
