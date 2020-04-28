@@ -20,7 +20,8 @@ jobs:
     - name: Run tests
       run: |
         cargo build --verbose
-        cargo test --verbose
+        cargo test --verbose --no-default-features
+        cargo test --verbose --all-features
       env:
         CARGO_INCREMENTAL: '0'
         RUSTFLAGS: '-Zprofile -Ccodegen-units=1 -Cinline-threshold=0 -Clink-dead-code -Coverflow-checks=off -Zno-landing-pads'

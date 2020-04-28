@@ -85,8 +85,9 @@ fn store_returns_err_when_full() {
 }
 
 #[test]
+#[cfg(feature = "verify_owner")]
 #[should_panic(expected = "Key used in wrong instance")]
-fn use_across_slots() {
+fn use_across_slots_verify() {
     let mut a: Slots<u8, U4> = Slots::new();
     let mut b: Slots<u8, U4> = Slots::new();
 
@@ -97,7 +98,20 @@ fn use_across_slots() {
     b.take(k);
 }
 
-#[should_panic(expected = "assertion failed: `(left == right)`\n  left: `792`,\n right: `536`")]
+#[test]
+#[cfg(not(feature = "verify_owner"))]
+fn use_across_slots_no_verify() {
+    let mut a: Slots<u8, U4> = Slots::new();
+    let mut b: Slots<u8, U4> = Slots::new();
+
+    let k = a.store(5).expect("There should be room");
+    // Store an element in b so we don't get a different panic
+    let _ = b.store(6).expect("There should be room");
+
+    assert_eq!(6, b.take(k));
+}
+
+#[should_panic(expected = "Compiled size does not match expected")]
 #[test]
 /// Verify some size bounds: an N long array over IT is not larger than 3 usize + N * IT (as long
 /// as IT is larger than two usize and has two niches)
@@ -120,7 +134,11 @@ fn is_compact() {
 
     assert_eq!(core::mem::size_of::<TwoNichesIn16Byte>(), 16);
 
-    assert_eq!(core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(), 32 * 16 + 3 * core::mem::size_of::<usize>());
+    let mut expected_size = 32 * 16 + 3 * core::mem::size_of::<usize>();
+    if cfg!(feature = "verify_owner") {
+        expected_size += 8; // an extra u64
+    }
+    assert_eq!(core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(), expected_size, "Compiled size does not match expected");
 }
 
 #[test]

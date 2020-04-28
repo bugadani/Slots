@@ -50,6 +50,7 @@
 #![cfg_attr(not(test), no_std)]
 
 use core::marker::PhantomData;
+use core::sync::atomic::{AtomicU64, Ordering};
 use generic_array::{GenericArray, sequence::GenericSequence};
 
 pub use generic_array::typenum::consts;
@@ -58,14 +59,19 @@ pub use generic_array::ArrayLength;
 use generic_array::typenum::Unsigned;
 
 pub struct Key<IT, N> {
+    #[cfg(feature = "verify_owner")]
+    owner_id: u64,
     index: usize,
     _item_marker: PhantomData<IT>,
     _size_marker: PhantomData<N>
 }
 
-impl<IT, N> Key<IT, N> {
-    fn new(idx: usize) -> Self {
+impl<IT, N> Key<IT, N>
+    where N: ArrayLength<Entry<IT>> + Unsigned {
+    fn new(owner: &Slots<IT, N>, idx: usize) -> Self {
         Self {
+            #[cfg(feature = "verify_owner")]
+            owner_id: owner.id,
             index: idx,
             _item_marker: PhantomData,
             _size_marker: PhantomData
@@ -90,11 +96,22 @@ enum EntryInner<IT> {
 // Values can be read by anyone but can only be modified using the key.
 pub struct Slots<IT, N>
     where N: ArrayLength<Entry<IT>> + Unsigned {
+    #[cfg(feature = "verify_owner")]
+    id: u64,
     items: GenericArray<Entry<IT>, N>,
     // Could be optimized by making it just usize and relying on free_count to determine its
     // validity
     next_free: Option<usize>,
     free_count: usize
+}
+
+#[cfg(feature = "verify_owner")]
+fn new_instance_id() -> u64 {
+    static COUNTER: AtomicU64 = AtomicU64::new(0);
+
+    let cnt = COUNTER.fetch_add(1, Ordering::Relaxed);
+
+    cnt
 }
 
 impl<IT, N> Slots<IT, N>
@@ -103,10 +120,21 @@ impl<IT, N> Slots<IT, N>
         let size = N::to_usize();
 
         Self {
+            #[cfg(feature = "verify_owner")]
+            id: new_instance_id(),
             items: GenericArray::generate(|i| Entry(i.checked_sub(1).map(EntryInner::EmptyNext).unwrap_or(EntryInner::EmptyLast))),
             next_free: size.checked_sub(1),
             free_count: size
         }
+    }
+
+    #[cfg(feature = "verify_owner")]
+    fn verify_key(&self, key: &Key<IT, N>) {
+        assert!(key.owner_id == self.id, "Key used in wrong instance");
+    }
+
+    #[cfg(not(feature = "verify_owner"))]
+    fn verify_key(&self, _key: &Key<IT, N>) {
     }
 
     pub fn capacity(&self) -> usize {
@@ -141,13 +169,15 @@ impl<IT, N> Slots<IT, N>
         match self.alloc() {
             Some(i) => {
                 self.items[i] = Entry(EntryInner::Used(item));
-                Ok(Key::new(i))
+                Ok(Key::new(self, i))
             }
             None => Err(item)
         }
     }
 
     pub fn take(&mut self, key: Key<IT, N>) -> IT {
+        self.verify_key(&key);
+
         let taken = core::mem::replace(&mut self.items[key.index], Entry(EntryInner::EmptyLast));
         self.free(key.index);
         match taken.0 {
@@ -157,6 +187,8 @@ impl<IT, N> Slots<IT, N>
     }
 
     pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
+        self.verify_key(&key);
+
         match self.try_read(key.index, function) {
             Some(t) => t,
             None => unreachable!("Invalid key")
@@ -171,6 +203,8 @@ impl<IT, N> Slots<IT, N>
     }
 
     pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
+        self.verify_key(&key);
+
         match self.items[key.index].0 {
             EntryInner::Used(ref mut item) => function(item),
             _ => unreachable!("Invalid key")

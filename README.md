@@ -2,3 +2,8 @@ Slots [![crates.io](https://img.shields.io/crates/v/slots.svg)](https://crates.i
 =====
 
 Fixed size data structure with constant-time operations.
+
+Performance options
+=====
+ * Slots provide the `verify_owner` feature that can be used to disable key owner verification.
+   By default the feature is on and it is recommended to leave it enabled for development builds and disabled for release builds.
