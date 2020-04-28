@@ -57,6 +57,23 @@ pub use generic_array::ArrayLength;
 
 use generic_array::typenum::Unsigned;
 
+mod enforcement_style {
+    /// A type-level choice between KeysAreValid and MayPanic
+    pub trait EnforcementStyle {}
+}
+
+/// Type indicator for Slots whose keys can only be used to perform non-panicking access
+pub struct KeysAreValid;
+
+impl enforcement_style::EnforcementStyle for KeysAreValid {}
+
+/// Type indicator for Slots whose keys may become unusable (or become unusable and later refer to
+/// any other item allocated in the same slot), but which can delete items based on indices in
+/// return.
+pub struct MayPanic;
+
+impl enforcement_style::EnforcementStyle for MayPanic {}
+
 pub struct Key<IT, N> {
     index: usize,
     _item_marker: PhantomData<IT>,
@@ -91,24 +108,30 @@ use entry::Entry;
 // Data type that stores values and returns a key that can be used to manipulate
 // the stored values.
 // Values can be read by anyone but can only be modified using the key.
-pub struct Slots<IT, N>
-    where N: ArrayLength<Entry<IT>> + Unsigned {
+pub struct Slots<IT, N, E=KeysAreValid>
+    where N: ArrayLength<Entry<IT>> + Unsigned,
+          E: enforcement_style::EnforcementStyle,
+{
     items: GenericArray<Entry<IT>, N>,
     // Could be optimized by making it just usize and relying on free_count to determine its
     // validity
     next_free: Option<usize>,
-    free_count: usize
+    free_count: usize,
+    enforcement_style: PhantomData<E>
 }
 
-impl<IT, N> Slots<IT, N>
-    where N: ArrayLength<Entry<IT>> + Unsigned {
+impl<IT, N, E> Slots<IT, N, E>
+    where N: ArrayLength<Entry<IT>> + Unsigned,
+          E: enforcement_style::EnforcementStyle
+{
     pub fn new() -> Self {
         let size = N::to_usize();
 
         Self {
             items: GenericArray::generate(|i| i.checked_sub(1).map(Entry::EmptyNext).unwrap_or(Entry::EmptyLast)),
             next_free: size.checked_sub(1),
-            free_count: size
+            free_count: size,
+            enforcement_style: PhantomData,
         }
     }
 
@@ -176,6 +199,24 @@ impl<IT, N> Slots<IT, N>
     pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
         match self.items[key.index] {
             Entry::Used(ref mut item) => function(item),
+            _ => panic!()
+        }
+    }
+}
+
+impl<IT, N> Slots<IT, N, MayPanic>
+    where N: ArrayLength<Entry<IT>> + Unsigned,
+{
+
+    pub fn try_take(&mut self, key: usize) -> Option<IT> {
+        if self.try_read(key, |_| ()).is_none() {
+            return None;
+        }
+
+        let taken = core::mem::replace(&mut self.items[key], Entry::EmptyLast);
+        self.free(key);
+        match taken {
+            Entry::Used(item) => Some(item),
             _ => panic!()
         }
     }

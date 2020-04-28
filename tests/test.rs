@@ -10,6 +10,17 @@ fn key_can_be_used_to_read_value() {
 }
 
 #[test]
+#[should_panic(expected="explicit panic")]
+fn uncheckedindex_can_be_used_to_panic() {
+    let mut slots: Slots<_, U8, slots::MayPanic> = Slots::new();
+    let k1 = slots.store(5).unwrap();
+    let k2 = k1.index();
+
+    assert_eq!(Some(5), slots.try_take(k2));
+    slots.take(k1);
+}
+
+#[test]
 fn size_can_be_1() {
     let mut slots: Slots<_, U1> = Slots::new();
     let k1 = slots.store(5).unwrap();
