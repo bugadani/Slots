@@ -187,6 +187,42 @@ impl<IT, N, A> Slots<IT, N, A>
         self.free_count -= 1;
         Some(index)
     }
+
+    fn _store(&mut self, item: IT) -> Result<usize, IT> {
+        match self.alloc() {
+            Some(i) => {
+                self.items[i] = Entry(EntryInner::Used(item));
+                Ok(i)
+            }
+            None => Err(item)
+        }
+    }
+
+    fn _remove(&mut self, idx: usize) -> Option<IT> {
+        let taken = core::mem::replace(&mut self.items[idx], Entry(EntryInner::EmptyLast));
+
+        match taken.0 {
+            EntryInner::Used(item) => {
+                self.free(idx);
+                Some(item)
+            },
+            _ => None
+        }
+    }
+
+    fn _read<T, F>(&self, idx: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+        match &self.items[idx].0 {
+            EntryInner::Used(item) => Some(function(&item)),
+            _ => None
+        }
+    }
+
+    fn _modify<T, F>(&mut self, idx: usize, function: F) -> Option<T> where F: FnOnce(&mut IT) -> T {
+        match self.items[idx].0 {
+            EntryInner::Used(ref mut item) => Some(function(item)),
+            _ => None
+        }
+    }
 }
 
 impl<IT, N> Slots<IT, N, Strict>
@@ -197,51 +233,29 @@ impl<IT, N> Slots<IT, N, Strict>
     }
 
     pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
-        match self.alloc() {
-            Some(i) => {
-                self.items[i] = Entry(EntryInner::Used(item));
-                Ok(Key::new(self, i))
-            }
-            None => Err(item)
-        }
+        self._store(item).map(|i| Key::new(self, i))
     }
 
     pub fn take(&mut self, key: Key<IT, N>) -> IT {
         self.verify_key(&key);
 
-        let taken = core::mem::replace(&mut self.items[key.index], Entry(EntryInner::EmptyLast));
-        match taken.0 {
-            EntryInner::Used(item) => {
-                self.free(key.index);
-                item
-            },
-            _ => unreachable!("Invalid key")
-        }
+        self._remove(key.index).expect("Invalid key")
     }
 
     pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
         self.verify_key(&key);
 
-        match self.try_read(key.index, function) {
-            Some(t) => t,
-            None => unreachable!("Invalid key")
-        }
+        self._read(key.index, function).expect("Invalid key")
+    }
+
+    pub fn try_read<T, F>(&self, idx: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+        self._read(idx, function)
     }
 
     pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
         self.verify_key(&key);
 
-        match self.items[key.index].0 {
-            EntryInner::Used(ref mut item) => function(item),
-            _ => unreachable!("Invalid key")
-        }
-    }
-
-    pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
-        match &self.items[key].0 {
-            EntryInner::Used(item) => Some(function(&item)),
-            _ => None
-        }
+        self._modify(key.index, function).expect("Invalid key")
     }
 }
 
@@ -249,37 +263,18 @@ impl<IT, N> Slots<IT, N, Relaxed>
     where N: ArrayLength<Entry<IT>> + Unsigned {
 
     pub fn store(&mut self, item: IT) -> Result<usize, IT> {
-        match self.alloc() {
-            Some(i) => {
-                self.items[i] = Entry(EntryInner::Used(item));
-                Ok(i)
-            }
-            None => Err(item)
-        }
+        self._store(item)
     }
 
     pub fn take(&mut self, idx: usize) -> Option<IT> {
-        let taken = core::mem::replace(&mut self.items[key.index], Entry(EntryInner::EmptyLast));
-        match taken.0 {
-            EntryInner::Used(item) => {
-                self.free(key.index);
-                Some(item)
-            },
-            _ => None
-        }
+        self._remove(idx)
     }
 
     pub fn modify<T, F>(&mut self, idx: usize, function: F) -> Option<T> where F: FnOnce(&mut IT) -> T {
-        match self.items[idx].0 {
-            EntryInner::Used(ref mut item) => Some(function(item)),
-            _ => None
-        }
+        self._modify(idx, function)
     }
 
     pub fn read<T, F>(&self, idx: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
-        match &self.items[idx].0 {
-            EntryInner::Used(item) => Some(function(&item)),
-            _ => None
-        }
+        self._read(idx, function)
     }
 }
