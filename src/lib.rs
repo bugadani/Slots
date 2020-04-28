@@ -8,10 +8,10 @@
 //! Example usage:
 //!
 //! ```
-//! use slots::Slots;
+//! use slots::{Slots, Strict};
 //! use slots::consts::U6;
 //!
-//! let mut slots: Slots<_, U6> = Slots::new(); // Capacity of 6 elements
+//! let mut slots: Slots<_, U6, Strict> = Slots::new(); // Capacity of 6 elements
 //!
 //! // Store elements
 //! let k1 = slots.store(2).unwrap(); // returns Err(2) if full
@@ -59,6 +59,13 @@ pub use generic_array::ArrayLength;
 
 use generic_array::typenum::Unsigned;
 
+pub struct Relaxed {}
+pub struct Strict {}
+pub trait AccessMode {}
+
+impl AccessMode for Relaxed {}
+impl AccessMode for Strict {}
+
 pub struct Key<IT, N> {
     #[cfg(feature = "verify_owner")]
     owner_id: usize,
@@ -69,7 +76,7 @@ pub struct Key<IT, N> {
 
 impl<IT, N> Key<IT, N>
     where N: ArrayLength<Entry<IT>> + Unsigned {
-    fn new(owner: &Slots<IT, N>, idx: usize) -> Self {
+    fn new(owner: &Slots<IT, N, Strict>, idx: usize) -> Self {
         Self {
             #[cfg(feature = "verify_owner")]
             owner_id: owner.id,
@@ -95,15 +102,17 @@ enum EntryInner<IT> {
 // Data type that stores values and returns a key that can be used to manipulate
 // the stored values.
 // Values can be read by anyone but can only be modified using the key.
-pub struct Slots<IT, N>
-    where N: ArrayLength<Entry<IT>> + Unsigned {
+pub struct Slots<IT, N, A>
+    where N: ArrayLength<Entry<IT>> + Unsigned,
+          A: AccessMode {
     #[cfg(feature = "verify_owner")]
     id: usize,
     items: GenericArray<Entry<IT>, N>,
     // Could be optimized by making it just usize and relying on free_count to determine its
     // validity
     next_free: Option<usize>,
-    free_count: usize
+    free_count: usize,
+    _mode_marker: PhantomData<A>
 }
 
 #[cfg(feature = "verify_owner")]
@@ -113,8 +122,9 @@ fn new_instance_id() -> usize {
     COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
-impl<IT, N> Slots<IT, N>
-    where N: ArrayLength<Entry<IT>> + Unsigned {
+impl<IT, N, A> Slots<IT, N, A>
+    where N: ArrayLength<Entry<IT>> + Unsigned,
+          A: AccessMode {
     pub fn new() -> Self {
         let size = N::to_usize();
 
@@ -123,17 +133,9 @@ impl<IT, N> Slots<IT, N>
             id: new_instance_id(),
             items: GenericArray::generate(|i| Entry(i.checked_sub(1).map(EntryInner::EmptyNext).unwrap_or(EntryInner::EmptyLast))),
             next_free: size.checked_sub(1),
-            free_count: size
+            free_count: size,
+            _mode_marker: PhantomData
         }
-    }
-
-    #[cfg(feature = "verify_owner")]
-    fn verify_key(&self, key: &Key<IT, N>) {
-        assert!(key.owner_id == self.id, "Key used in wrong instance");
-    }
-
-    #[cfg(not(feature = "verify_owner"))]
-    fn verify_key(&self, _key: &Key<IT, N>) {
     }
 
     pub fn capacity(&self) -> usize {
@@ -163,6 +165,19 @@ impl<IT, N> Slots<IT, N>
         self.free_count -= 1;
         Some(index)
     }
+}
+
+impl<IT, N> Slots<IT, N, Strict>
+    where N: ArrayLength<Entry<IT>> + Unsigned {
+
+    #[cfg(feature = "verify_owner")]
+    fn verify_key(&self, key: &Key<IT, N>) {
+        assert!(key.owner_id == self.id, "Key used in wrong instance");
+    }
+
+    #[cfg(not(feature = "verify_owner"))]
+    fn verify_key(&self, _key: &Key<IT, N>) {
+    }
 
     pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
         match self.alloc() {
@@ -178,9 +193,11 @@ impl<IT, N> Slots<IT, N>
         self.verify_key(&key);
 
         let taken = core::mem::replace(&mut self.items[key.index], Entry(EntryInner::EmptyLast));
-        self.free(key.index);
         match taken.0 {
-            EntryInner::Used(item) => item,
+            EntryInner::Used(item) => {
+                self.free(key.index);
+                item
+            },
             _ => unreachable!("Invalid key")
         }
     }
@@ -194,19 +211,58 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
-    pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
-        match &self.items[key].0 {
-            EntryInner::Used(item) => Some(function(&item)),
-            _ => None
-        }
-    }
-
     pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
         self.verify_key(&key);
 
         match self.items[key.index].0 {
             EntryInner::Used(ref mut item) => function(item),
             _ => unreachable!("Invalid key")
+        }
+    }
+
+    pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+        match &self.items[key].0 {
+            EntryInner::Used(item) => Some(function(&item)),
+            _ => None
+        }
+    }
+}
+
+impl<IT, N> Slots<IT, N, Relaxed>
+    where N: ArrayLength<Entry<IT>> + Unsigned {
+
+    pub fn store(&mut self, item: IT) -> Result<usize, IT> {
+        match self.alloc() {
+            Some(i) => {
+                self.items[i] = Entry(EntryInner::Used(item));
+                Ok(i)
+            }
+            None => Err(item)
+        }
+    }
+
+    pub fn take(&mut self, key: Key<IT, N>) -> Option<IT> {
+        let taken = core::mem::replace(&mut self.items[key.index], Entry(EntryInner::EmptyLast));
+        match taken.0 {
+            EntryInner::Used(item) => {
+                self.free(key.index);
+                Some(item)
+            },
+            _ => None
+        }
+    }
+
+    pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> Option<T> where F: FnOnce(&mut IT) -> T {
+        match self.items[key.index].0 {
+            EntryInner::Used(ref mut item) => Some(function(item)),
+            _ => None
+        }
+    }
+
+    pub fn read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+        match &self.items[key].0 {
+            EntryInner::Used(item) => Some(function(&item)),
+            _ => None
         }
     }
 }
