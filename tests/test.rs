@@ -10,6 +10,26 @@ fn key_can_be_used_to_read_value() {
 }
 
 #[test]
+fn uncheckedindex_can_be_used_to_read_value() {
+    let mut slots: Slots<_, U8, usize> = Slots::new();
+    let k1 = slots.store(5).unwrap();
+    let k2 = k1.clone();
+
+    assert_eq!(5, slots.read(&k2, |&w| w));
+}
+
+#[test]
+#[should_panic(expected="explicit panic")]
+fn uncheckedindex_can_be_used_to_panic() {
+    let mut slots: Slots<_, U8, usize> = Slots::new();
+    let k1 = slots.store(5).unwrap();
+    let k2 = k1.clone();
+
+    assert_eq!(5, slots.take(k1));
+    slots.take(k2);
+}
+
+#[test]
 fn size_can_be_1() {
     let mut slots: Slots<_, U1> = Slots::new();
     let k1 = slots.store(5).unwrap();

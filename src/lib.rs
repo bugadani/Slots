@@ -84,6 +84,16 @@ impl<IT, N> sealed::Key for Key<IT, N> {
     }
 }
 
+impl sealed::Key for usize {
+    fn new(idx: usize) -> Self {
+        idx
+    }
+
+    fn index(&self) -> usize {
+        *self
+    }
+}
+
 impl<IT, N> Key<IT, N> {
     // Convenience duplicate to a) make it usable by applications without any `use slots::...::Key`
     // method, and b) to spare everyone the hassle of having a public and a sealed trait around
