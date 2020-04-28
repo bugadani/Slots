@@ -130,18 +130,14 @@ impl<IT, N> Slots<IT, N>
     }
 
     fn alloc(&mut self) -> Option<usize> {
-        if self.count() == self.capacity() {
-            None
-        } else {
-            let result = self.next_free;
-            self.next_free = match self.items[result.expect("Count mismatch")] {
-                Entry::EmptyNext(n) => Some(n),
-                Entry::EmptyLast => None,
-                _ => unreachable!("Non-empty item in entry behind free chain"),
-            };
-            self.free_count -= 1;
-            result
-        }
+        let index = self.next_free?;
+        self.next_free = match self.items[index] {
+            Entry::EmptyNext(n) => Some(n),
+            Entry::EmptyLast => None,
+            _ => unreachable!("Non-empty item in entry behind free chain"),
+        };
+        self.free_count -= 1;
+        Some(index)
     }
 
     pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
