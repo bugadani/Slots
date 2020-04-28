@@ -106,12 +106,8 @@ impl<IT, N> Slots<IT, N>
         let size = N::to_usize();
 
         Self {
-            // Fill back-to-front
-            // items: GenericArray::generate(|i: usize| if i == 0 { Entry::EmptyLast } else { Entry::EmptyNext(i - 1) }),
-            // next_free: size.checked_sub(1),
-            // Fill front-to-back
-            items: GenericArray::generate(|i: usize| if i == size - 1 { Entry::EmptyLast } else { Entry::EmptyNext(i + 1) }),
-            next_free: Some(0),
+            items: GenericArray::generate(|i| i.checked_sub(1).map(Entry::EmptyNext).unwrap_or(Entry::EmptyLast)),
+            next_free: size.checked_sub(1),
             free_count: size
         }
     }

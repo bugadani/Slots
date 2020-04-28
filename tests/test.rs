@@ -33,9 +33,9 @@ fn index_can_be_used_to_read_value() {
     slots.store(6).unwrap();
     slots.store(7).unwrap();
 
-    assert_eq!(5, slots.try_read(0, |&w| w).unwrap());
-    assert_eq!(6, slots.try_read(1, |&w| w).unwrap());
-    assert_eq!(7, slots.try_read(2, |&w| w).unwrap());
+    assert_eq!(5, slots.try_read(7, |&w| w).unwrap());
+    assert_eq!(6, slots.try_read(6, |&w| w).unwrap());
+    assert_eq!(7, slots.try_read(5, |&w| w).unwrap());
 }
 
 #[test]
