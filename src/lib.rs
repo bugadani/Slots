@@ -95,15 +95,20 @@ enum EntryInner<IT> {
 // Data type that stores values and returns a key that can be used to manipulate
 // the stored values.
 // Values can be read by anyone but can only be modified using the key.
-pub struct Slots<IT, N>
+pub struct RawSlots<IT, N>
     where N: ArrayLength<Entry<IT>> + Unsigned {
-    #[cfg(feature = "verify_owner")]
-    id: usize,
     items: GenericArray<Entry<IT>, N>,
     // Could be optimized by making it just usize and relying on free_count to determine its
     // validity
     next_free: Option<usize>,
     free_count: usize
+}
+
+pub struct Slots<IT, N>
+where N: ArrayLength<Entry<IT>> + Unsigned {
+    #[cfg(feature = "verify_owner")]
+    id: usize,
+    raw: RawSlots<IT, N>
 }
 
 #[cfg(feature = "verify_owner")]
@@ -113,27 +118,16 @@ fn new_instance_id() -> usize {
     COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
-impl<IT, N> Slots<IT, N>
+impl<IT, N> RawSlots<IT, N>
     where N: ArrayLength<Entry<IT>> + Unsigned {
     pub fn new() -> Self {
         let size = N::to_usize();
 
         Self {
-            #[cfg(feature = "verify_owner")]
-            id: new_instance_id(),
             items: GenericArray::generate(|i| Entry(i.checked_sub(1).map(EntryInner::EmptyNext).unwrap_or(EntryInner::EmptyLast))),
             next_free: size.checked_sub(1),
             free_count: size
         }
-    }
-
-    #[cfg(feature = "verify_owner")]
-    fn verify_key(&self, key: &Key<IT, N>) {
-        assert!(key.owner_id == self.id, "Key used in wrong instance");
-    }
-
-    #[cfg(not(feature = "verify_owner"))]
-    fn verify_key(&self, _key: &Key<IT, N>) {
     }
 
     pub fn capacity(&self) -> usize {
@@ -164,49 +158,88 @@ impl<IT, N> Slots<IT, N>
         Some(index)
     }
 
-    pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
+    pub fn store(&mut self, item: IT) -> Result<usize, IT> {
         match self.alloc() {
             Some(i) => {
                 self.items[i] = Entry(EntryInner::Used(item));
-                Ok(Key::new(self, i))
+                Ok(i)
             }
             None => Err(item)
         }
     }
 
-    pub fn take(&mut self, key: Key<IT, N>) -> IT {
-        self.verify_key(&key);
-
-        let taken = core::mem::replace(&mut self.items[key.index], Entry(EntryInner::EmptyLast));
-        self.free(key.index);
+    pub fn take(&mut self, key: usize) -> Option<IT> {
+        let taken = core::mem::replace(&mut self.items[key], Entry(EntryInner::EmptyLast));
+        self.free(key);
         match taken.0 {
-            EntryInner::Used(item) => item,
-            _ => unreachable!("Invalid key")
+            EntryInner::Used(item) => Some(item),
+            _ => None
         }
     }
 
-    pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
-        self.verify_key(&key);
-
-        match self.try_read(key.index, function) {
-            Some(t) => t,
-            None => unreachable!("Invalid key")
-        }
-    }
-
-    pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+    pub fn read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
         match &self.items[key].0 {
             EntryInner::Used(item) => Some(function(&item)),
             _ => None
         }
     }
 
+    pub fn modify<T, F>(&mut self, key: usize, function: F) -> Option<T> where F: FnOnce(&mut IT) -> T {
+        match self.items[key].0 {
+            EntryInner::Used(ref mut item) => Some(function(item)),
+            _ => None
+        }
+    }
+}
+
+impl<IT, N> Slots<IT, N>
+    where N: ArrayLength<Entry<IT>> + Unsigned {
+
+    pub fn new() -> Self {
+        Self {
+            #[cfg(feature = "verify_owner")]
+            id: new_instance_id(),
+            raw: RawSlots::new(),
+        }
+    }
+
+    #[cfg(feature = "verify_owner")]
+    fn verify_key(&self, key: &Key<IT, N>) {
+        assert!(key.owner_id == self.id, "Key used in wrong instance");
+    }
+
+    #[cfg(not(feature = "verify_owner"))]
+    fn verify_key(&self, _key: &Key<IT, N>) {
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.raw.capacity()
+    }
+
+    pub fn count(&self) -> usize {
+        self.raw.count()
+    }
+
+    pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
+        self.raw.store(item).map(|id| Key::new(self, id))
+    }
+
+    pub fn take(&mut self, key: Key<IT, N>) -> IT {
+        self.verify_key(&key);
+        self.raw.take(key.index()).expect("Invalid key")
+    }
+
+    pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
+        self.verify_key(&key);
+        self.raw.read(key.index(), function).expect("Invalid key")
+    }
+
+    pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+        self.raw.read(key, function)
+    }
+
     pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
         self.verify_key(&key);
-
-        match self.items[key.index].0 {
-            EntryInner::Used(ref mut item) => function(item),
-            _ => unreachable!("Invalid key")
-        }
+        self.raw.modify(key.index(), function).expect("Invalid key")
     }
 }
