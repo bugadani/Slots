@@ -57,6 +57,9 @@ use generic_array::{GenericArray, sequence::GenericSequence};
 pub use generic_array::typenum::consts;
 pub use generic_array::ArrayLength;
 
+mod slotmap;
+pub use slotmap::SlotMap;
+
 use generic_array::typenum::Unsigned;
 
 /// Access key to a Slots instance
