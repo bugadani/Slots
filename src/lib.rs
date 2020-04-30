@@ -156,6 +156,8 @@ impl<IT, N> Slots<IT, N>
     }
 
     fn free(&mut self, idx: usize) {
+        debug_assert!(self.count != 0, "Free called on an empty collection");
+
         if self.full() {
             self.items[idx] = Entry::EmptyLast;
         } else {
