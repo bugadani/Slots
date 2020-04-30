@@ -111,7 +111,7 @@ pub struct Slots<IT, N>
     // Could be optimized by making it just usize and relying on free_count to determine its
     // validity
     next_free: Option<usize>,
-    free_count: usize
+    count: usize
 }
 
 #[cfg(feature = "verify_owner")]
@@ -131,7 +131,7 @@ impl<IT, N> Slots<IT, N>
             id: new_instance_id(),
             items: GenericArray::generate(|i| i.checked_sub(1).map(Entry::EmptyNext).unwrap_or(Entry::EmptyLast)),
             next_free: size.checked_sub(1),
-            free_count: size
+            count: 0
         }
     }
 
@@ -149,7 +149,7 @@ impl<IT, N> Slots<IT, N>
     }
 
     pub fn count(&self) -> usize {
-        self.capacity() - self.free_count
+        self.count
     }
 
     fn free(&mut self, idx: usize) {
@@ -158,7 +158,7 @@ impl<IT, N> Slots<IT, N>
             None => Entry::EmptyLast,
         };
         self.next_free = Some(idx);
-        self.free_count += 1;
+        self.count -= 1;
     }
 
     fn alloc(&mut self) -> Option<usize> {
@@ -168,7 +168,7 @@ impl<IT, N> Slots<IT, N>
             Entry::EmptyLast => None,
             _ => unreachable!("Non-empty item in entry behind free chain"),
         };
-        self.free_count -= 1;
+        self.count += 1;
         Some(index)
     }
 
