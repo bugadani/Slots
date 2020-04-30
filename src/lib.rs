@@ -1,52 +1,117 @@
 //! This crate provides heapless slab allocator related collections.
 //!
-//! Slots implements a "heapless", fixed size, unordered data structure where elements
-//! can only be modified using the key retrieved when storing them.
-//! Slots behaves similarly to a stack, except the key can be used to retrieve (and delete)
-//! elements without restriction.
+//! Slots implements a "heapless", fixed size, unordered data structure,
+//! inspired by SlotMap.
 //!
-//! Example usage:
+//! # Store data
 //!
-//! ```
+//! When a piece of data is stored in the collection, a [`Key`] object is
+//! returned. This key represents the owner of the stored data:
+//! it is required to modify or remove (take out) the stored data.
+//!
+//! To ensure the stored data is always valid as long as the key exists,
+//! the key can't be cloned.
+//!
+//! ```rust
 //! use slots::Slots;
-//! use slots::consts::U6;
+//! use slots::consts::U2;
 //!
-//! let mut slots: Slots<_, U6> = Slots::new(); // Capacity of 6 elements
+//! let mut slots: Slots<_, U2> = Slots::new(); // Capacity of 2 elements
 //!
 //! // Store elements
-//! let k1 = slots.store(2).unwrap(); // returns Err(2) if full
+//! let k1 = slots.store(2).unwrap();
 //! let k2 = slots.store(4).unwrap();
 //!
-//! // Remove first element
-//! let first = slots.take(k1); // k1 is consumed and can no longer be used
-//! assert_eq!(2, first);
+//! // Now that the collection is full, the next store will fail and
+//! // return an Err object that holds the original value we wanted to store.
+//! let k3 = slots.store(8);
+//! assert_eq!(k3, Err(8));
 //!
-//! // Read element without modification
-//! let three = slots.read(&k2, |&e| e-1); // closure can be used to transform element
-//! assert_eq!(3, three);
+//! // Storage statistics
+//! assert_eq!(2, slots.capacity()); // this instance can hold at most 2 elements
+//! assert_eq!(2, slots.count()); // there are currently 2 elements stored
+//! ```
 //!
-//! // Try to read from an index without the key:
-//! // when the slot is empty, the closure *is not* called
-//! let this_will_be_none = slots.try_read(5, |&e| e);
-//! assert_eq!(None, this_will_be_none);
+//! # Remove data
 //!
-//! // Try to read from an index extracted from the key:
-//! // the index only allows reading, as it's not guaranteed the index will remain valid
-//! let index = k2.index();
-//! let this_will_be_five = slots.try_read(index, |&e| e+1).unwrap(); //closure *is* called
-//! assert_eq!(5, this_will_be_five);
+//! Removing data from a Slots collection invalidates its key. Because of this,
+//! the [`take`] method consumes the key.
 //!
-//! // Modify a stored element
-//! let three = slots.modify(&k2, |e| {
-//!     *e = 2 + *e;
-//!     3
-//! });
-//! assert_eq!(3, three);
+//! ```rust
+//! # use slots::Slots;
+//! # use slots::consts::U2;
+//! #
+//! # let mut slots: Slots<_, U2> = Slots::new();
+//! #
+//! # let k = slots.store(2).unwrap();
+//! # let _ = slots.store(4).unwrap();
+//! #
+//! // initially we have 2 elements in the collection
+//! assert_eq!(2, slots.count());
 //!
-//! // Information about the storage
-//! assert_eq!(6, slots.capacity());
+//! // remove an element
+//! slots.take(k);
+//!
+//! // removing also decreases the count of stored elements
 //! assert_eq!(1, slots.count());
 //! ```
+//!
+//! ```rust{compile_fail}
+//! # use slots::Slots;
+//! # use slots::consts::U1;
+//! #
+//! # let mut slots: Slots<_, U1> = Slots::new();
+//! #
+//! let k1 = slots.store(2).unwrap();
+//!
+//! slots.take(k1); // k1 is consumed and can no longer be used
+//! slots.take(k1); // trying to use it again will cause a compile error
+//! ```
+//!
+//! # Access stored data
+//!
+//! The key can be used to read or modify the stored data. This is done by passing a `FnOnce` closure
+//! to the [`read`] and [`modify`] methods. Whatever the closures return, will be returned by the methods.
+//!
+//! ```rust
+//! # use slots::Slots;
+//! # use slots::consts::U2;
+//! #
+//! # let mut slots: Slots<_, U2> = Slots::new();
+//! #
+//! # let k1 = slots.store(2).unwrap();
+//! let k2 = slots.store(4).unwrap();
+//! // Read element without modification
+//! // closure can be used to transform element
+//! assert_eq!(3, slots.read(&k2, |&e| e - 1));
+//!
+//! // Modify a stored element and return a derivative
+//! assert_eq!(3, slots.modify(&k2, |e| {
+//!     *e = 2 + *e;
+//!     3
+//! }));
+//! // The value behind k2 has changed
+//! assert_eq!(6, slots.read(&k2, |&e| e));
+//! ```
+//!
+//! # Read using a numerical index
+//!
+//! It's possible to extract the index of the allocated slot from the [`Key`] object, using the [`index`] method.
+//! Because this returns a number with the `usize` type, it is not guaranteed to refer to valid data.
+//!
+//! ```rust
+//! # use slots::Slots;
+//! # use slots::consts::U2;
+//! #
+//! # let mut slots: Slots<_, U2> = Slots::new();
+//! let k1 = slots.store(2).unwrap();
+//! let idx = k1.index();
+//! slots.take(k1); // idx no longer points to valid data
+//!
+//! assert_eq!(None, slots.try_read(idx, |&e| e*2)); // reading from a freed slot fails by returning None
+//! ```
+//!
+//! # Passing around Slots
 //!
 //! When you need to work with arbitrarily sized Slots objects,
 //! you need to specify that the slots::Size<IT> trait is implemented for
@@ -61,6 +126,11 @@
 //! }
 //! ```
 //!
+//! [`Key`]: ./struct.Key.html
+//! [`index`]: ./struct.Key.html#method.index
+//! [`take`]: ./struct.Slots.html#method.take
+//! [`read`]: ./struct.Slots.html#method.read
+//! [`modify`]: ./struct.Slots.html#method.modify
 
 #![cfg_attr(not(test), no_std)]
 
@@ -75,6 +145,7 @@ use private::Entry;
 
 pub use generic_array::typenum::consts;
 
+#[derive(Debug, PartialEq)]
 pub struct Key<IT, N> {
     #[cfg(feature = "verify_owner")]
     owner_id: usize,
