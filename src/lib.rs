@@ -1,4 +1,4 @@
-//! Data structure with only constant time operations
+//! This crate provides heapless slab allocator related collections.
 //!
 //! Slots implements a "heapless", fixed size, unordered data structure where elements
 //! can only be modified using the key retrieved when storing them.
