@@ -50,8 +50,10 @@
 //! you need to specify that the slots::Size<IT> trait is implemented for
 //! the parameter N.
 //! ```
+//! use slots::{Slots, Size, Key};
+//!
 //! fn examine<IT, N>(slots: &Slots<IT, N>, keys: &[Key<IT, N>])
-//!     where N: slots::Size<IT>,
+//!     where N: Size<IT>,
 //! {
 //!     unimplemented!();
 //! }
