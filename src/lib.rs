@@ -83,9 +83,8 @@ pub struct Key<IT, N> {
 pub trait Size<I>: ArrayLength<Entry<I>> {}
 impl<T, I> Size<I> for T where T: ArrayLength<Entry<I>> {}
 
-impl<IT, N> Key<IT, N>
-    where N: Size<IT> {
-    fn new(owner: &Slots<IT, N>, idx: usize) -> Self {
+impl<IT, N> Key<IT, N> {
+    fn new(owner: &Slots<IT, N>, idx: usize) -> Self where N: Size<IT> {
         Self {
             #[cfg(feature = "verify_owner")]
             owner_id: owner.id,
