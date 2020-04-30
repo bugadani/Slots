@@ -26,11 +26,13 @@
 //! assert_eq!(3, three);
 //!
 //! // Try to read from an index without the key:
-//! let this_will_be_none = slots.try_read(5, |&e| e); // closure *is not* called because index is not used
+//! // when the slot is empty, the closure *is not* called
+//! let this_will_be_none = slots.try_read(5, |&e| e);
 //! assert_eq!(None, this_will_be_none);
 //!
 //! // Try to read from an index extracted from the key:
-//! let index = k2.index(); // this will only allow us to read since there are no guarantees the item will be valid
+//! // the index only allows reading, as it's not guaranteed the index will remain valid
+//! let index = k2.index();
 //! let this_will_be_five = slots.try_read(index, |&e| e+1).unwrap(); //closure *is* called
 //! assert_eq!(5, this_will_be_five);
 //!
