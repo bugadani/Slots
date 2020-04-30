@@ -65,6 +65,7 @@
 use core::marker::PhantomData;
 #[cfg(feature = "verify_owner")]
 use core::sync::atomic::{AtomicUsize, Ordering};
+use core::mem::replace;
 use generic_array::{GenericArray, ArrayLength, sequence::GenericSequence};
 
 mod private;
@@ -158,7 +159,7 @@ impl<IT, N> Slots<IT, N>
         if self.full() {
             self.items[idx] = Entry::EmptyLast;
         } else {
-            self.items[idx] = Entry::EmptyNext(self.next_free)
+            self.items[idx] = Entry::EmptyNext(self.next_free);
         }
 
         self.next_free = idx; // the freed element will always be the top of the free stack
@@ -196,11 +197,11 @@ impl<IT, N> Slots<IT, N>
     pub fn take(&mut self, key: Key<IT, N>) -> IT {
         self.verify_key(&key);
 
-        let taken = core::mem::replace(&mut self.items[key.index], Entry::EmptyLast);
-        self.free(key.index);
-        match taken {
-            Entry::Used(item) => item,
-            _ => unreachable!("Invalid key")
+        if let Entry::Used(item) = replace(&mut self.items[key.index], Entry::EmptyLast) {
+            self.free(key.index);
+            item
+        } else {
+            unreachable!("Invalid key");
         }
     }
 
