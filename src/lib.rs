@@ -65,14 +65,12 @@
 use core::marker::PhantomData;
 #[cfg(feature = "verify_owner")]
 use core::sync::atomic::{AtomicUsize, Ordering};
-use generic_array::{GenericArray, sequence::GenericSequence};
+use generic_array::{GenericArray, ArrayLength, sequence::GenericSequence};
 
 mod private;
-
 use private::Entry;
 
 pub use generic_array::typenum::consts;
-pub use generic_array::ArrayLength;
 
 pub struct Key<IT, N> {
     #[cfg(feature = "verify_owner")]
