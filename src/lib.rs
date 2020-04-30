@@ -114,7 +114,7 @@
 //! # Passing around Slots
 //!
 //! When you need to work with arbitrarily sized Slots objects,
-//! you need to specify that the slots::Size<IT> trait is implemented for
+//! you need to specify that the [`Size`] trait is implemented for
 //! the parameter N.
 //! ```
 //! use slots::{Slots, Size, Key};
@@ -127,6 +127,7 @@
 //! ```
 //!
 //! [`Key`]: ./struct.Key.html
+//! [`Size`]: ./trait.Size.html
 //! [`index`]: ./struct.Key.html#method.index
 //! [`take`]: ./struct.Slots.html#method.take
 //! [`read`]: ./struct.Slots.html#method.read
