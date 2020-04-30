@@ -59,6 +59,16 @@ pub use generic_array::ArrayLength;
 
 use generic_array::typenum::Unsigned;
 
+/// Access key to a Slots instance
+///
+/// Keys must only be used with the Slots they were generated from; using them for any other access
+/// is a logic error and results in immediate or later panics from the Slot's functions. Erroneous
+/// use is largely caught by type constraints; additional runtime constraints can be enabled using
+/// the `verify_owner` feature.
+///
+/// Unless `verify_owner` is used, a Key is pointer-sized.
+///
+/// Keys can only be created by a Slot's [`store`](struct.Slots.html#method.store) method.
 pub struct Key<IT, N> {
     #[cfg(feature = "verify_owner")]
     owner_id: usize,
@@ -79,11 +89,31 @@ impl<IT, N> Key<IT, N>
         }
     }
 
+    /// The underlying index of the key
+    ///
+    /// A key's index can be used in fallible access using the
+    /// [`try_read()`](struct.Slots.html#method.try_read) method.
     pub fn index(&self) -> usize {
         self.index
     }
 }
 
+/// Internal element of `RawSlots` instances
+///
+/// This struct is not expected to be used by code outside the slots crate, except to define
+/// suitable array sizes that are `ArrayLength<Entry<IT>>` as required by the
+/// [`RawSlots`](struct.RawSlots.html) and [`Slots`](struct.Slots.html) generics
+/// for usages that are generic over the length of the used slots:
+///
+/// ```
+/// # use slots::*;
+/// fn examine<IT, N>(slots: &Slots<IT, N>, keys: &[Key<IT, N>])
+/// where
+///     N: slots::ArrayLength<slots::Entry<IT>>,
+/// {
+///    unimplemented!();
+/// }
+/// ```
 pub struct Entry<IT>(EntryInner<IT>);
 
 enum EntryInner<IT> {
@@ -92,18 +122,35 @@ enum EntryInner<IT> {
     EmptyLast
 }
 
-// Data type that stores values and returns a key that can be used to manipulate
-// the stored values.
-// Values can be read by anyone but can only be modified using the key.
-pub struct Slots<IT, N>
+/// An unchecked slab allocator with predetermined size
+///
+/// The allocator deals out usize handles that can be used to access the data later through a
+/// (shared or mutable) reference to the `RawSlots`. All access is fallible, as the handles can be
+/// arbitrarily created.
+///
+/// It is up to slots' users to ensure that the item they intend to access is still identified by
+/// that handle, especially as it can have been removed in the meantime, and the handle replaced by
+/// a different object.
+pub struct RawSlots<IT, N>
     where N: ArrayLength<Entry<IT>> + Unsigned {
-    #[cfg(feature = "verify_owner")]
-    id: usize,
     items: GenericArray<Entry<IT>, N>,
     // Could be optimized by making it just usize and relying on free_count to determine its
     // validity
     next_free: Option<usize>,
     free_count: usize
+}
+
+/// A type-checked slab allocator with predetermined size
+///
+/// The allocator deals out [`Key`](struct.Key.html) objects that can be used to access the data
+/// later through a (shared or mutable) reference to the Slots. By the interface's design, access
+/// is guaranteed to succeed, as the keys are unclonable and consumed to remove an item from the
+/// Slots instance.
+pub struct Slots<IT, N>
+where N: ArrayLength<Entry<IT>> + Unsigned {
+    #[cfg(feature = "verify_owner")]
+    id: usize,
+    raw: RawSlots<IT, N>
 }
 
 #[cfg(feature = "verify_owner")]
@@ -113,27 +160,17 @@ fn new_instance_id() -> usize {
     COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
-impl<IT, N> Slots<IT, N>
+impl<IT, N> RawSlots<IT, N>
     where N: ArrayLength<Entry<IT>> + Unsigned {
+    /// Create an empty raw slot allocator of size `N`.
     pub fn new() -> Self {
         let size = N::to_usize();
 
         Self {
-            #[cfg(feature = "verify_owner")]
-            id: new_instance_id(),
             items: GenericArray::generate(|i| Entry(i.checked_sub(1).map(EntryInner::EmptyNext).unwrap_or(EntryInner::EmptyLast))),
             next_free: size.checked_sub(1),
             free_count: size
         }
-    }
-
-    #[cfg(feature = "verify_owner")]
-    fn verify_key(&self, key: &Key<IT, N>) {
-        assert!(key.owner_id == self.id, "Key used in wrong instance");
-    }
-
-    #[cfg(not(feature = "verify_owner"))]
-    fn verify_key(&self, _key: &Key<IT, N>) {
     }
 
     pub fn capacity(&self) -> usize {
@@ -164,49 +201,116 @@ impl<IT, N> Slots<IT, N>
         Some(index)
     }
 
-    pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
+    /// Put an item into a free slot
+    ///
+    /// This returns an access index for the stored data in the success case, or hands the unstored
+    /// item back in case of an error.
+    pub fn store(&mut self, item: IT) -> Result<usize, IT> {
         match self.alloc() {
             Some(i) => {
                 self.items[i] = Entry(EntryInner::Used(item));
-                Ok(Key::new(self, i))
+                Ok(i)
             }
             None => Err(item)
         }
     }
 
-    pub fn take(&mut self, key: Key<IT, N>) -> IT {
-        self.verify_key(&key);
-
-        let taken = core::mem::replace(&mut self.items[key.index], Entry(EntryInner::EmptyLast));
-        self.free(key.index);
+    /// Move an item out of a slot, if it exists
+    pub fn take(&mut self, index: usize) -> Option<IT> {
+        let taken = core::mem::replace(&mut self.items[index], Entry(EntryInner::EmptyLast));
+        self.free(index);
         match taken.0 {
-            EntryInner::Used(item) => item,
-            _ => unreachable!("Invalid key")
+            EntryInner::Used(item) => Some(item),
+            _ => None
         }
     }
 
-    pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
-        self.verify_key(&key);
-
-        match self.try_read(key.index, function) {
-            Some(t) => t,
-            None => unreachable!("Invalid key")
-        }
-    }
-
-    pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
-        match &self.items[key].0 {
+    /// Provide immutable access to an item
+    ///
+    /// The callback is only run if the given index is currently valid.
+    pub fn read<T, F>(&self, index: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+        match &self.items[index].0 {
             EntryInner::Used(item) => Some(function(&item)),
             _ => None
         }
     }
 
+    /// Provide mutable access to an item
+    //
+    /// The callback is only run if the given index is currently valid.
+    pub fn modify<T, F>(&mut self, index: usize, function: F) -> Option<T> where F: FnOnce(&mut IT) -> T {
+        match self.items[index].0 {
+            EntryInner::Used(ref mut item) => Some(function(item)),
+            _ => None
+        }
+    }
+}
+
+impl<IT, N> Slots<IT, N>
+    where N: ArrayLength<Entry<IT>> + Unsigned {
+
+    /// Create an empty slot allocator of size `N`.
+    ///
+    /// If the `verify_owner` feature is enabled, it will carry a new unique (except for
+    /// wraparounds) ID which it shares with its keys.
+    pub fn new() -> Self {
+        Self {
+            #[cfg(feature = "verify_owner")]
+            id: new_instance_id(),
+            raw: RawSlots::new(),
+        }
+    }
+
+    #[cfg(feature = "verify_owner")]
+    fn verify_key(&self, key: &Key<IT, N>) {
+        assert!(key.owner_id == self.id, "Key used in wrong instance");
+    }
+
+    #[cfg(not(feature = "verify_owner"))]
+    fn verify_key(&self, _key: &Key<IT, N>) {
+    }
+
+    pub fn capacity(&self) -> usize {
+        self.raw.capacity()
+    }
+
+    pub fn count(&self) -> usize {
+        self.raw.count()
+    }
+
+    /// Put an item into a free slot
+    ///
+    /// This returns an access index for the stored data in the success case, or hands the unstored
+    /// item back in case of an error.
+    pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
+        self.raw.store(item).map(|id| Key::new(self, id))
+    }
+
+    /// Move an item out of its slot
+    pub fn take(&mut self, key: Key<IT, N>) -> IT {
+        self.verify_key(&key);
+        self.raw.take(key.index()).expect("Invalid key")
+    }
+
+    /// Provide immutable access to an item
+    pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
+        self.verify_key(&key);
+        self.raw.read(key.index(), function).expect("Invalid key")
+    }
+
+    /// Opportunistic immutable access to an item by its index
+    ///
+    /// A suitable index can be generated from a [`Key`](struct.Key.html) through its
+    /// [`index()`](struct.Key.html#method.index) method; unlike the regular access, this can fail if
+    /// the element has been removed (in which case the function is not run at all), or might have
+    /// been replaced by a completely unrelated element inbetween.
+    pub fn try_read<T, F>(&self, index: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+        self.raw.read(index, function)
+    }
+
+    /// Provide mutable access to an item
     pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
         self.verify_key(&key);
-
-        match self.items[key.index].0 {
-            EntryInner::Used(ref mut item) => function(item),
-            _ => unreachable!("Invalid key")
-        }
+        self.raw.modify(key.index(), function).expect("Invalid key")
     }
 }
