@@ -217,9 +217,13 @@ impl<IT, N> Slots<IT, N>
     }
 
     pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
-        match &self.items[key] {
-            Entry::Used(item) => Some(function(&item)),
-            _ => None
+        if key >= self.capacity() {
+            None
+        } else {
+            match &self.items[key] {
+                Entry::Used(item) => Some(function(&item)),
+                _ => None
+            }
         }
     }
 
