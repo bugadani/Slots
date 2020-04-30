@@ -108,9 +108,7 @@ pub struct Slots<IT, N>
     #[cfg(feature = "verify_owner")]
     id: usize,
     items: GenericArray<Entry<IT>, N>,
-    // Could be optimized by making it just usize and relying on free_count to determine its
-    // validity
-    next_free: Option<usize>,
+    next_free: usize,
     count: usize
 }
 
@@ -130,7 +128,7 @@ impl<IT, N> Slots<IT, N>
             #[cfg(feature = "verify_owner")]
             id: new_instance_id(),
             items: GenericArray::generate(|i| i.checked_sub(1).map(Entry::EmptyNext).unwrap_or(Entry::EmptyLast)),
-            next_free: size.checked_sub(1),
+            next_free: size.saturating_sub(1), // edge case: N == 0
             count: 0
         }
     }
@@ -152,24 +150,37 @@ impl<IT, N> Slots<IT, N>
         self.count
     }
 
+    fn full(&self) -> bool {
+        self.count == self.capacity()
+    }
+
     fn free(&mut self, idx: usize) {
-        self.items[idx] = match self.next_free {
-            Some(n) => Entry::EmptyNext(n),
-            None => Entry::EmptyLast,
-        };
-        self.next_free = Some(idx);
+        if self.full() {
+            self.items[idx] = Entry::EmptyLast;
+        } else {
+            self.items[idx] = Entry::EmptyNext(self.next_free)
+        }
+
+        self.next_free = idx; // the freed element will always be the top of the free stack
         self.count -= 1;
     }
 
     fn alloc(&mut self) -> Option<usize> {
-        let index = self.next_free?;
-        self.next_free = match self.items[index] {
-            Entry::EmptyNext(n) => Some(n),
-            Entry::EmptyLast => None,
-            _ => unreachable!("Non-empty item in entry behind free chain"),
-        };
-        self.count += 1;
-        Some(index)
+        if self.full() {
+            // no free slot
+            None
+        } else {
+            // next_free points to the top of the free stack
+            let index = self.next_free;
+
+            self.next_free = match self.items[index] {
+                Entry::EmptyNext(n) => n, // pop the stack
+                Entry::EmptyLast => 0, // replace last element with anything
+                _ => unreachable!("Non-empty item in entry behind free chain"),
+            };
+            self.count += 1;
+            Some(index)
+        }
     }
 
     pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
