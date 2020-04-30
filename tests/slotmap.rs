@@ -1,5 +1,12 @@
-use slots::SlotMap;
+#![warn(soft_unstable)]
+#![feature(test)]
+
+extern crate test;
+
+use slots::*;
 use slots::consts::*;
+
+use test::Bencher;
 
 #[test]
 fn key_reuse_triggers() {
@@ -27,3 +34,40 @@ fn key_reuse_triggers() {
     assert_eq!(k2, 16 | 7);
 }
 
+struct Thing {
+    x: [usize; 20],
+    y: Option<u8>,
+}
+
+impl Thing {
+    fn new() -> Self {
+        Self { x: [10; 20], y: Some(20) }
+    }
+}
+
+#[bench]
+fn bench_slotmap(b: &mut Bencher) {
+    b.iter(|| {
+        let mut s: slots::SlotMap<_, U128> = SlotMap::new();
+
+        for _ in 0..128 {
+            let h = s.store(Thing::new()).ok().unwrap();
+            s.read(h, |i| test::black_box(i.y)).unwrap();
+        }
+    })
+}
+
+// This is identical to bench_slotmap except for the type.
+// That this becomes *much* faster than slotmap on larger Thing sizes indicates that somewhere, the
+// slotmap implementation is flawed in that it moves data around where it should not.
+#[bench]
+fn bench_rawslots(b: &mut Bencher) {
+    b.iter(|| {
+        let mut s: slots::RawSlots<_, U128> = RawSlots::new();
+
+        for _ in 0..128 {
+            let h = s.store(Thing::new()).ok().unwrap();
+            s.read(h, |i| test::black_box(i.y)).unwrap();
+        }
+    })
+}
