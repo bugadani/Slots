@@ -1,4 +1,4 @@
-//! This crate provides heapless slab allocator related collections.
+//! This crate provides a heapless slab allocator with strict access control.
 //!
 //! Slots implements a "heapless", fixed size, unordered data structure,
 //! inspired by SlotMap.
