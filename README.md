@@ -5,6 +5,8 @@ This crate provides a heapless slab allocator with strict access control.
 
 Slots implements a static friendly, fixed size, unordered data structure inspired by SlotMap. All operations are constant time.
 
+[Documentation](https://docs.rs/slots/)
+
 Features
 ========
  * Slots provide the `verify_owner` feature that can be used to disable key owner verification.
