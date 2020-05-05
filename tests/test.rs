@@ -113,7 +113,7 @@ fn use_across_slots_no_verify() {
 
 #[should_panic(expected = "Compiled size does not match expected")]
 #[test]
-/// Verify some size bounds: an N long array over IT is not larger than 3 usize + N * IT (as long
+/// Verify some size bounds: an N long array over IT is not larger than 2 usize + N * IT (as long
 /// as IT is larger than two usize and has two niches)
 //
 // Fails until https://github.com/rust-lang/rust/issues/46213 is resolved (possibly,
@@ -134,7 +134,7 @@ fn is_compact() {
 
     assert_eq!(core::mem::size_of::<TwoNichesIn16Byte>(), 16);
 
-    let mut expected_size = 32 * 16 + 3 * core::mem::size_of::<usize>();
+    let mut expected_size = 32 * 16 + 2 * core::mem::size_of::<usize>();
     if cfg!(feature = "verify_owner") {
         expected_size += core::mem::size_of::<usize>(); // an extra usize for object id
     }

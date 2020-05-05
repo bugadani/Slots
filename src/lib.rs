@@ -65,6 +65,7 @@
 use core::marker::PhantomData;
 #[cfg(feature = "verify_owner")]
 use core::sync::atomic::{AtomicUsize, Ordering};
+use core::mem::replace;
 use generic_array::{GenericArray, ArrayLength, sequence::GenericSequence};
 
 mod private;
@@ -107,10 +108,8 @@ pub struct Slots<IT, N>
     #[cfg(feature = "verify_owner")]
     id: usize,
     items: GenericArray<Entry<IT>, N>,
-    // Could be optimized by making it just usize and relying on free_count to determine its
-    // validity
-    next_free: Option<usize>,
-    free_count: usize
+    next_free: usize,
+    count: usize
 }
 
 #[cfg(feature = "verify_owner")]
@@ -129,8 +128,8 @@ impl<IT, N> Slots<IT, N>
             #[cfg(feature = "verify_owner")]
             id: new_instance_id(),
             items: GenericArray::generate(|i| i.checked_sub(1).map(Entry::EmptyNext).unwrap_or(Entry::EmptyLast)),
-            next_free: size.checked_sub(1),
-            free_count: size
+            next_free: size.saturating_sub(1), // edge case: N == 0
+            count: 0
         }
     }
 
@@ -148,27 +147,42 @@ impl<IT, N> Slots<IT, N>
     }
 
     pub fn count(&self) -> usize {
-        self.capacity() - self.free_count
+        self.count
+    }
+
+    fn full(&self) -> bool {
+        self.count == self.capacity()
     }
 
     fn free(&mut self, idx: usize) {
-        self.items[idx] = match self.next_free {
-            Some(n) => Entry::EmptyNext(n),
-            None => Entry::EmptyLast,
-        };
-        self.next_free = Some(idx);
-        self.free_count += 1;
+        debug_assert!(self.count != 0, "Free called on an empty collection");
+
+        if self.full() {
+            self.items[idx] = Entry::EmptyLast;
+        } else {
+            self.items[idx] = Entry::EmptyNext(self.next_free);
+        }
+
+        self.next_free = idx; // the freed element will always be the top of the free stack
+        self.count -= 1;
     }
 
     fn alloc(&mut self) -> Option<usize> {
-        let index = self.next_free?;
-        self.next_free = match self.items[index] {
-            Entry::EmptyNext(n) => Some(n),
-            Entry::EmptyLast => None,
-            _ => unreachable!("Non-empty item in entry behind free chain"),
-        };
-        self.free_count -= 1;
-        Some(index)
+        if self.full() {
+            // no free slot
+            None
+        } else {
+            // next_free points to the top of the free stack
+            let index = self.next_free;
+
+            self.next_free = match self.items[index] {
+                Entry::EmptyNext(n) => n, // pop the stack
+                Entry::EmptyLast => 0, // replace last element with anything
+                _ => unreachable!("Non-empty item in entry behind free chain"),
+            };
+            self.count += 1;
+            Some(index)
+        }
     }
 
     pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
@@ -184,11 +198,11 @@ impl<IT, N> Slots<IT, N>
     pub fn take(&mut self, key: Key<IT, N>) -> IT {
         self.verify_key(&key);
 
-        let taken = core::mem::replace(&mut self.items[key.index], Entry::EmptyLast);
-        self.free(key.index);
-        match taken {
-            Entry::Used(item) => item,
-            _ => unreachable!("Invalid key")
+        if let Entry::Used(item) = replace(&mut self.items[key.index], Entry::EmptyLast) {
+            self.free(key.index);
+            item
+        } else {
+            unreachable!("Invalid key");
         }
     }
 
