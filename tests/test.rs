@@ -26,6 +26,14 @@ fn size_can_be_1() {
 }
 
 #[test]
+fn cant_read_outside_bounds() {
+    let mut slots: Slots<_, U1> = Slots::new();
+    let k1 = slots.store(5).unwrap();
+
+    assert!(slots.try_read(slots.capacity(), |_| 0).is_none());
+}
+
+#[test]
 fn index_can_be_used_to_read_value() {
     let mut slots: Slots<_, U8> = Slots::new();
 
@@ -164,4 +172,17 @@ fn capacity_and_count() {
     slots.take(k4);
 
     assert_eq!(slots.count(), 0);
+}
+
+#[test]
+fn zero_sized_collection() {
+    let mut slots: Slots<u8, U0> = Slots::new();
+
+    assert_eq!(slots.capacity(), 0);
+    assert_eq!(slots.count(), 0);
+
+    let k1 = slots.store(1);
+
+    assert!(k1.is_err());
+    assert!(slots.try_read(0, |_| {0}).is_none());
 }
