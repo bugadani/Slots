@@ -1,4 +1,4 @@
-Unreleased
+0.2.0
 ==========
 * `try_read` now return `None` for out of bounds reads. [@bugadani](https://github.com/bugadani)
 * Reduce memory footprint by 4 or 8 bytes (on 32 or 64 bit architectures) [@bugadani](https://github.com/bugadani)
