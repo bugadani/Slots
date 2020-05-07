@@ -108,7 +108,7 @@
 //! let idx = k1.index();
 //! slots.take(k1); // idx no longer points to valid data
 //!
-//! assert_eq!(None, slots.try_read(idx, |&e| e*2)); // reading from a freed slot fails by returning None
+//! assert_eq!(None, slots.try_read(idx, |&e| e*2)); // reading from a freed slot fails
 //! ```
 //!
 //! # Passing around Slots
@@ -135,18 +135,21 @@
 
 #![cfg_attr(not(test), no_std)]
 
+mod private;
+
 use core::marker::PhantomData;
-#[cfg(feature = "verify_owner")]
-use core::sync::atomic::{AtomicUsize, Ordering};
 use core::mem::replace;
 use generic_array::{GenericArray, ArrayLength, sequence::GenericSequence};
 
-mod private;
 use private::Entry;
 
 pub use generic_array::typenum::consts;
 
 #[derive(Debug, PartialEq)]
+/// The key used to access stored elements.
+///
+/// **Important:** It should only be used to access the same collection that returned it.
+/// When the `verify_owner` feature is disabled, extra care must be taken to ensure this constraint.
 pub struct Key<IT, N> {
     #[cfg(feature = "verify_owner")]
     owner_id: usize,
@@ -155,6 +158,7 @@ pub struct Key<IT, N> {
     _size_marker: PhantomData<N>
 }
 
+/// Alias of [`ArrayLength`](../generic_array/trait.ArrayLength.html)
 pub trait Size<I>: ArrayLength<Entry<I>> {}
 impl<T, I> Size<I> for T where T: ArrayLength<Entry<I>> {}
 
@@ -174,9 +178,9 @@ impl<IT, N> Key<IT, N> {
     }
 }
 
-// Data type that stores values and returns a key that can be used to manipulate
-// the stored values.
-// Values can be read by anyone but can only be modified using the key.
+/// Data type that stores values and returns a key that can be used to manipulate
+/// the stored values.
+/// Values can be read by anyone but can only be modified using the key.
 pub struct Slots<IT, N>
     where N: Size<IT> {
     #[cfg(feature = "verify_owner")]
@@ -186,6 +190,7 @@ pub struct Slots<IT, N>
     count: usize
 }
 
+/// Read-only iterator to access all occupied slots.
 pub struct Iter<'a, IT, N>
     where
         N: Size<IT> {
@@ -238,6 +243,8 @@ mod iter_test {
 
 #[cfg(feature = "verify_owner")]
 fn new_instance_id() -> usize {
+    use core::sync::atomic::{AtomicUsize, Ordering};
+
     static COUNTER: AtomicUsize = AtomicUsize::new(0);
 
     COUNTER.fetch_add(1, Ordering::Relaxed)
@@ -253,7 +260,10 @@ impl<IT, N> Default for Slots<IT, N>
 }
 
 impl<IT, N> Slots<IT, N>
-    where N: Size<IT> {
+    where
+        N: Size<IT> {
+
+    /// Creates a new, empty Slots object.
     pub fn new() -> Self {
         let size = N::to_usize();
 
@@ -266,6 +276,10 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
+    /// Returns a read-only iterator.
+    /// The iterator can be used to read data from all occupied slots.
+    ///
+    /// **Note:** Do not rely on the order in which the elements are returned.
     pub fn iter(&self) -> Iter<IT, N> {
         Iter {
             slots: self,
@@ -282,10 +296,12 @@ impl<IT, N> Slots<IT, N>
     fn verify_key(&self, _key: &Key<IT, N>) {
     }
 
+    /// Returns the number of slots
     pub fn capacity(&self) -> usize {
         N::to_usize()
     }
 
+    /// Returns the number of occupied slots
     pub fn count(&self) -> usize {
         self.count
     }
@@ -325,6 +341,7 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
+    /// Store an element in a free slot and return the key to access it.
     pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
         match self.alloc() {
             Some(i) => {
@@ -335,6 +352,7 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
+    /// Remove and return the element that belongs to the key.
     pub fn take(&mut self, key: Key<IT, N>) -> IT {
         self.verify_key(&key);
 
@@ -346,6 +364,10 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
+    /// Read the element that belongs to the key.
+    ///
+    /// This operation does not move ownership so the `function` callback must be used
+    /// to access the stored element. The callback may return arbitrary derivative of the element.
     pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
         self.verify_key(&key);
 
@@ -355,6 +377,11 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
+    /// Read the element that belongs to a particular index. Since the index may point to
+    /// a free slot or outside the collection, this operation may return None without invoking the callback.
+    ///
+    /// This operation does not move ownership so the `function` callback must be used
+    /// to access the stored element. The callback may return arbitrary derivative of the element.
     pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
         if key >= self.capacity() {
             None
@@ -366,6 +393,10 @@ impl<IT, N> Slots<IT, N>
         }
     }
 
+    /// Access the element that belongs to the key for modification.
+    ///
+    /// This operation does not move ownership so the `function` callback must be used
+    /// to access the stored element. The callback may return arbitrary derivative of the element.
     pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
         self.verify_key(&key);
 
