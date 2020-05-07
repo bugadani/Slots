@@ -186,6 +186,56 @@ pub struct Slots<IT, N>
     count: usize
 }
 
+pub struct Iter<'a, IT, N>
+    where
+        N: Size<IT> {
+    slots: &'a Slots<IT, N>,
+    idx: usize
+}
+
+impl<'a, IT, N> Iterator for Iter<'a, IT, N>
+    where
+        N: Size<IT> {
+    type Item = &'a IT;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        while self.idx < N::to_usize() {
+            if let Entry::Used(ref item) = self.slots.items[self.idx] {
+                self.idx += 1;
+                return Some(item);
+            }
+            self.idx += 1;
+        }
+        None
+    }
+}
+
+#[cfg(test)]
+mod iter_test {
+    use super::{Slots, consts::U3};
+
+    #[test]
+    fn sanity_check() {
+        let mut slots: Slots<_, U3> = Slots::new();
+
+        let _k1 = slots.store(1).unwrap();
+        let k2 = slots.store(2).unwrap();
+        let _k3 = slots.store(3).unwrap();
+
+        slots.take(k2);
+
+        let mut iter = slots.iter();
+        // iterator does not return elements in order of store
+        assert_eq!(Some(&3), iter.next());
+        assert_eq!(Some(&1), iter.next());
+        assert_eq!(None, iter.next());
+
+        for &_ in slots.iter() {
+
+        }
+    }
+}
+
 #[cfg(feature = "verify_owner")]
 fn new_instance_id() -> usize {
     static COUNTER: AtomicUsize = AtomicUsize::new(0);
@@ -213,6 +263,13 @@ impl<IT, N> Slots<IT, N>
             items: GenericArray::generate(|i| i.checked_sub(1).map(Entry::EmptyNext).unwrap_or(Entry::EmptyLast)),
             next_free: size.saturating_sub(1), // edge case: N == 0
             count: 0
+        }
+    }
+
+    pub fn iter(&self) -> Iter<IT, N> {
+        Iter {
+            slots: self,
+            idx: 0
         }
     }
 

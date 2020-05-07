@@ -1,6 +1,7 @@
 Unreleased
 ==========
-* Implement `Default` for `Slots` [@bugadani](https://github.com/bugadani)
+* Implement read-only `.iter()` [@bugadani]
+* Implement `Default` for `Slots` [@bugadani]
 
 0.2.0
 ==========
