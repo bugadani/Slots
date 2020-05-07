@@ -193,6 +193,15 @@ fn new_instance_id() -> usize {
     COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
+impl<IT, N> Default for Slots<IT, N>
+    where
+        N: Size<IT> {
+
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl<IT, N> Slots<IT, N>
     where N: Size<IT> {
     pub fn new() -> Self {
