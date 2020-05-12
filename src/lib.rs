@@ -191,25 +191,18 @@ pub struct Slots<IT, N>
 }
 
 /// Read-only iterator to access all occupied slots.
-pub struct Iter<'a, IT, N>
-    where
-        N: Size<IT> {
-    slots: &'a Slots<IT, N>,
-    idx: usize
+pub struct Iter<'a, IT> {
+    inner: core::slice::Iter<'a, private::Entry<IT>>
 }
 
-impl<'a, IT, N> Iterator for Iter<'a, IT, N>
-    where
-        N: Size<IT> {
+impl<'a, IT> Iterator for Iter<'a, IT> {
     type Item = &'a IT;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while self.idx < N::to_usize() {
-            if let Entry::Used(ref item) = self.slots.items[self.idx] {
-                self.idx += 1;
+        while let Some(slot) = self.inner.next() {
+            if let Entry::Used(ref item) = slot {
                 return Some(item);
             }
-            self.idx += 1;
         }
         None
     }
@@ -280,16 +273,15 @@ impl<IT, N> Slots<IT, N>
     /// The iterator can be used to read data from all occupied slots.
     ///
     /// **Note:** Do not rely on the order in which the elements are returned.
-    pub fn iter(&self) -> Iter<IT, N> {
+    pub fn iter(&self) -> Iter<IT> {
         Iter {
-            slots: self,
-            idx: 0
+            inner: self.items.iter()
         }
     }
 
     #[cfg(feature = "verify_owner")]
     fn verify_key(&self, key: &Key<IT, N>) {
-        assert!(key.owner_id == self.id, "Key used in wrong instance");
+        assert_eq!(key.owner_id, self.id, "Key used in wrong instance");
     }
 
     #[cfg(not(feature = "verify_owner"))]
@@ -313,11 +305,11 @@ impl<IT, N> Slots<IT, N>
     fn free(&mut self, idx: usize) {
         debug_assert!(self.count != 0, "Free called on an empty collection");
 
-        if self.full() {
-            self.items[idx] = Entry::EmptyLast;
+        self.items[idx] = if self.full() {
+            Entry::EmptyLast
         } else {
-            self.items[idx] = Entry::EmptyNext(self.next_free);
-        }
+            Entry::EmptyNext(self.next_free)
+        };
 
         self.next_free = idx; // the freed element will always be the top of the free stack
         self.count -= 1;
@@ -368,13 +360,10 @@ impl<IT, N> Slots<IT, N>
     ///
     /// This operation does not move ownership so the `function` callback must be used
     /// to access the stored element. The callback may return arbitrary derivative of the element.
-    pub fn read<T, F>(&self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&IT) -> T {
+    pub fn read<T>(&self, key: &Key<IT, N>, function: impl FnOnce(&IT) -> T) -> T {
         self.verify_key(&key);
 
-        match self.try_read(key.index, function) {
-            Some(t) => t,
-            None => unreachable!("Invalid key")
-        }
+        self.try_read(key.index, function).expect("Invalid key")
     }
 
     /// Read the element that belongs to a particular index. Since the index may point to
@@ -382,7 +371,7 @@ impl<IT, N> Slots<IT, N>
     ///
     /// This operation does not move ownership so the `function` callback must be used
     /// to access the stored element. The callback may return arbitrary derivative of the element.
-    pub fn try_read<T, F>(&self, key: usize, function: F) -> Option<T> where F: FnOnce(&IT) -> T {
+    pub fn try_read<T>(&self, key: usize, function: impl FnOnce(&IT) -> T) -> Option<T> {
         if key >= self.capacity() {
             None
         } else {
@@ -397,7 +386,7 @@ impl<IT, N> Slots<IT, N>
     ///
     /// This operation does not move ownership so the `function` callback must be used
     /// to access the stored element. The callback may return arbitrary derivative of the element.
-    pub fn modify<T, F>(&mut self, key: &Key<IT, N>, function: F) -> T where F: FnOnce(&mut IT) -> T {
+    pub fn modify<T>(&mut self, key: &Key<IT, N>, function: impl FnOnce(&mut IT) -> T) -> T {
         self.verify_key(&key);
 
         match self.items[key.index] {
