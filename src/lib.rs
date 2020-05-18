@@ -139,7 +139,7 @@ mod private;
 
 use core::marker::PhantomData;
 use core::mem::replace;
-use generic_array::{GenericArray, ArrayLength, sequence::GenericSequence};
+use generic_array::{sequence::GenericSequence, ArrayLength, GenericArray};
 
 use private::Entry;
 
@@ -155,7 +155,7 @@ pub struct Key<IT, N> {
     owner_id: usize,
     index: usize,
     _item_marker: PhantomData<IT>,
-    _size_marker: PhantomData<N>
+    _size_marker: PhantomData<N>,
 }
 
 /// Alias of [`ArrayLength`](../generic_array/trait.ArrayLength.html)
@@ -163,13 +163,16 @@ pub trait Size<I>: ArrayLength<Entry<I>> {}
 impl<T, I> Size<I> for T where T: ArrayLength<Entry<I>> {}
 
 impl<IT, N> Key<IT, N> {
-    fn new(owner: &Slots<IT, N>, idx: usize) -> Self where N: Size<IT> {
+    fn new(owner: &Slots<IT, N>, idx: usize) -> Self
+    where
+        N: Size<IT>,
+    {
         Self {
             #[cfg(feature = "verify_owner")]
             owner_id: owner.id,
             index: idx,
             _item_marker: PhantomData,
-            _size_marker: PhantomData
+            _size_marker: PhantomData,
         }
     }
 
@@ -182,17 +185,19 @@ impl<IT, N> Key<IT, N> {
 /// the stored values.
 /// Values can be read by anyone but can only be modified using the key.
 pub struct Slots<IT, N>
-    where N: Size<IT> {
+where
+    N: Size<IT>,
+{
     #[cfg(feature = "verify_owner")]
     id: usize,
     items: GenericArray<Entry<IT>, N>,
     next_free: usize,
-    count: usize
+    count: usize,
 }
 
 /// Read-only iterator to access all occupied slots.
 pub struct Iter<'a, IT> {
-    inner: core::slice::Iter<'a, private::Entry<IT>>
+    inner: core::slice::Iter<'a, private::Entry<IT>>,
 }
 
 impl<'a, IT> Iterator for Iter<'a, IT> {
@@ -210,7 +215,7 @@ impl<'a, IT> Iterator for Iter<'a, IT> {
 
 #[cfg(test)]
 mod iter_test {
-    use super::{Slots, consts::U3};
+    use super::{consts::U3, Slots};
 
     #[test]
     fn sanity_check() {
@@ -228,9 +233,7 @@ mod iter_test {
         assert_eq!(Some(&1), iter.next());
         assert_eq!(None, iter.next());
 
-        for &_ in slots.iter() {
-
-        }
+        for &_ in slots.iter() {}
     }
 }
 
@@ -244,18 +247,18 @@ fn new_instance_id() -> usize {
 }
 
 impl<IT, N> Default for Slots<IT, N>
-    where
-        N: Size<IT> {
-
+where
+    N: Size<IT>,
+{
     fn default() -> Self {
         Self::new()
     }
 }
 
 impl<IT, N> Slots<IT, N>
-    where
-        N: Size<IT> {
-
+where
+    N: Size<IT>,
+{
     /// Creates a new, empty Slots object.
     pub fn new() -> Self {
         let size = N::to_usize();
@@ -263,9 +266,13 @@ impl<IT, N> Slots<IT, N>
         Self {
             #[cfg(feature = "verify_owner")]
             id: new_instance_id(),
-            items: GenericArray::generate(|i| i.checked_sub(1).map(Entry::EmptyNext).unwrap_or(Entry::EmptyLast)),
+            items: GenericArray::generate(|i| {
+                i.checked_sub(1)
+                    .map(Entry::EmptyNext)
+                    .unwrap_or(Entry::EmptyLast)
+            }),
             next_free: size.saturating_sub(1), // edge case: N == 0
-            count: 0
+            count: 0,
         }
     }
 
@@ -275,7 +282,7 @@ impl<IT, N> Slots<IT, N>
     /// **Note:** Do not rely on the order in which the elements are returned.
     pub fn iter(&self) -> Iter<IT> {
         Iter {
-            inner: self.items.iter()
+            inner: self.items.iter(),
         }
     }
 
@@ -285,8 +292,7 @@ impl<IT, N> Slots<IT, N>
     }
 
     #[cfg(not(feature = "verify_owner"))]
-    fn verify_key(&self, _key: &Key<IT, N>) {
-    }
+    fn verify_key(&self, _key: &Key<IT, N>) {}
 
     /// Returns the number of slots
     pub fn capacity(&self) -> usize {
@@ -325,7 +331,7 @@ impl<IT, N> Slots<IT, N>
 
             self.next_free = match self.items[index] {
                 Entry::EmptyNext(n) => n, // pop the stack
-                Entry::EmptyLast => 0, // replace last element with anything
+                Entry::EmptyLast => 0,    // replace last element with anything
                 _ => unreachable!("Non-empty item in entry behind free chain"),
             };
             self.count += 1;
@@ -340,7 +346,7 @@ impl<IT, N> Slots<IT, N>
                 self.items[i] = Entry::Used(item);
                 Ok(Key::new(self, i))
             }
-            None => Err(item)
+            None => Err(item),
         }
     }
 
@@ -377,7 +383,7 @@ impl<IT, N> Slots<IT, N>
         } else {
             match &self.items[key] {
                 Entry::Used(item) => Some(function(&item)),
-                _ => None
+                _ => None,
             }
         }
     }
@@ -391,7 +397,7 @@ impl<IT, N> Slots<IT, N>
 
         match self.items[key.index] {
             Entry::Used(ref mut item) => function(item),
-            _ => unreachable!("Invalid key")
+            _ => unreachable!("Invalid key"),
         }
     }
 }

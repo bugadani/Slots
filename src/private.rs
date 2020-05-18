@@ -5,5 +5,5 @@
 pub enum Entry<IT> {
     Used(IT),
     EmptyNext(usize),
-    EmptyLast
+    EmptyLast,
 }

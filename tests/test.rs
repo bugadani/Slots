@@ -1,5 +1,5 @@
-use slots::Slots;
 use slots::consts::*;
+use slots::Slots;
 
 #[test]
 fn key_can_be_used_to_read_value() {
@@ -74,10 +74,13 @@ fn elements_can_be_modified_using_key() {
 
     let k = slots.store(5).unwrap();
 
-    assert_eq!(7, slots.modify(&k, |w| {
-        *w = *w + 2;
-        *w
-    }));
+    assert_eq!(
+        7,
+        slots.modify(&k, |w| {
+            *w = *w + 2;
+            *w
+        })
+    );
     assert_eq!(7, slots.read(&k, |&w| w));
 }
 
@@ -146,7 +149,11 @@ fn is_compact() {
     if cfg!(feature = "verify_owner") {
         expected_size += core::mem::size_of::<usize>(); // an extra usize for object id
     }
-    assert_eq!(core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(), expected_size, "Compiled size does not match expected");
+    assert_eq!(
+        core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(),
+        expected_size,
+        "Compiled size does not match expected"
+    );
 }
 
 #[test]
@@ -184,5 +191,5 @@ fn zero_sized_collection() {
     let k1 = slots.store(1);
 
     assert!(k1.is_err());
-    assert!(slots.try_read(0, |_| {0}).is_none());
+    assert!(slots.try_read(0, |_| { 0 }).is_none());
 }
