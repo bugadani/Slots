@@ -23,6 +23,8 @@
 //! let k1 = slots.store(2).unwrap();
 //! let k2 = slots.store(4).unwrap();
 //!
+//! assert_eq!(true, slots.is_full());
+//!
 //! // Now that the collection is full, the next store will fail and
 //! // return an Err object that holds the original value we wanted to store.
 //! let k3 = slots.store(8);
