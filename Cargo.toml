@@ -2,7 +2,7 @@
 name = "slots"
 version = "0.3.0"
 license = "MIT"
-homepage = "https://github.com/bugadani/Slots"
+repository = "https://github.com/bugadani/Slots"
 description = "Fixed size data structure with constant-time operations"
 authors = ["Dániel Buga <bugadani@gmail.com>"]
 edition = "2018"
