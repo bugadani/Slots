@@ -88,6 +88,17 @@ where
     /// The iterator can be used to read data from all occupied slots.
     ///
     /// **Note:** Do not rely on the order in which the elements are returned.
+    ///
+    /// ```
+    /// # use slots::unrestricted::UnrestrictedSlots;
+    /// # use slots::consts::U4;
+    /// # let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    /// slots.store(2).unwrap();
+    /// slots.store(4).unwrap();
+    /// slots.store(6).unwrap();
+    ///
+    /// assert_eq!(true, slots.iter().any(|&x| x < 3));
+    /// ```
     pub fn iter(&self) -> Iter<IT> {
         Iter::from_iter(self.items.as_slice())
     }
@@ -96,6 +107,21 @@ where
     /// The iterator can be used to read and modify data from all occupied slots, but it can't remove data.
     ///
     /// **Note:** Do not rely on the order in which the elements are returned.
+    ///
+    /// ```
+    /// # use slots::unrestricted::UnrestrictedSlots;
+    /// # use slots::consts::U4;
+    /// # let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    /// let k = slots.store(2).unwrap();
+    /// slots.store(4).unwrap();
+    /// slots.store(6).unwrap();
+    ///
+    /// for mut x in slots.iter_mut() {
+    ///     *x *= 2;
+    /// }
+    ///
+    /// assert_eq!(4, slots.take(k).unwrap());
+    /// ```
     pub fn iter_mut(&mut self) -> IterMut<IT> {
         IterMut::from_iter(self.items.as_mut_slice())
     }
@@ -130,7 +156,6 @@ where
     pub fn count(&self) -> usize {
         self.count
     }
-
 
     /// Returns whether all the slots are occupied and the next [`store()`](#method.store) will fail.
     ///
@@ -187,7 +212,7 @@ where
     /// Store an element in a free slot and return the key to access it.
     ///
     /// Storing a variable takes ownership over it. If the storage is full,
-    /// the ownership is returned in the return value.
+    /// the inserted data is returned in the return value.
     pub fn store(&mut self, item: IT) -> Result<usize, IT> {
         match self.alloc() {
             Some(i) => {

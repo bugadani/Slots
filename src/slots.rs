@@ -217,6 +217,17 @@ where
     /// The iterator can be used to read data from all occupied slots.
     ///
     /// **Note:** Do not rely on the order in which the elements are returned.
+    ///
+    /// ```
+    /// # use slots::slots::Slots;
+    /// # use slots::consts::U4;
+    /// # let mut slots: Slots<_, U4> = Slots::new();
+    /// slots.store(2).unwrap();
+    /// slots.store(4).unwrap();
+    /// slots.store(6).unwrap();
+    ///
+    /// assert_eq!(true, slots.iter().any(|&x| x < 3));
+    /// ```
     pub fn iter(&self) -> Iter<IT> {
         self.inner.iter()
     }
@@ -284,7 +295,7 @@ where
     /// Store an element in a free slot and return the key to access it.
     ///
     /// Storing a variable takes ownership over it. If the storage is full,
-    /// the ownership is returned in the return value.
+    /// the inserted data is returned in the return value.
     pub fn store(&mut self, item: IT) -> Result<Key<IT, N>, IT> {
         self.inner.store(item).map(|idx| Key::new(self, idx))
     }
