@@ -21,14 +21,14 @@ fn size_can_be_1() {
     assert_eq!(0, slots.count());
 
     // test that we can fill the storage again
-    slots.store(6);
+    slots.store(6).unwrap();
     assert_eq!(1, slots.count());
 }
 
 #[test]
 fn cant_read_outside_bounds() {
     let mut slots: Slots<_, U1> = Slots::new();
-    let k1 = slots.store(5).unwrap();
+    let _k1 = slots.store(5).unwrap();
 
     assert!(slots.try_read(slots.capacity(), |_| 0).is_none());
 }
@@ -88,7 +88,7 @@ fn elements_can_be_modified_using_key() {
 fn store_returns_err_when_full() {
     let mut slots: Slots<u8, U1> = Slots::new();
 
-    slots.store(5);
+    slots.store(5).unwrap();
 
     let k2 = slots.store(5);
 
