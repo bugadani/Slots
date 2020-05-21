@@ -7,3 +7,9 @@ pub enum Entry<IT> {
     EmptyNext(usize),
     EmptyLast,
 }
+
+impl<IT> Default for Entry<IT> {
+    fn default() -> Self {
+        Entry::EmptyLast
+    }
+}

@@ -26,6 +26,7 @@ impl<T, I> Size<I> for T where T: ArrayLength<Entry<I>> {}
 ///  - `N` is the number of slots, which is a type-level constant provided by the `typenum` crate.
 ///
 /// For more information, see the [module level documentation](./index.html)
+#[derive(Default)]
 pub struct UnrestrictedSlots<IT, N>
 where
     N: Size<IT>,
@@ -33,15 +34,6 @@ where
     items: GenericArray<Entry<IT>, N>,
     next_free: usize,
     count: usize,
-}
-
-impl<IT, N> Default for UnrestrictedSlots<IT, N>
-where
-    N: Size<IT>,
-{
-    fn default() -> Self {
-        Self::new()
-    }
 }
 
 impl<IT, N> UnrestrictedSlots<IT, N>
