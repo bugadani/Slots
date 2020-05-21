@@ -1,3 +1,8 @@
+0.3.1
+=====
+* Fix a small issue regarding code quality [@bugadani]
+* Fix metadata, github link counts as `repository` and not `homepage` [@bugadani]
+
 0.3..0
 ==========
 * Rename `verify_owner` feature flag to `runtime_checks` [@bugadani]
