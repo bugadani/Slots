@@ -18,5 +18,5 @@ exclude = [
 generic-array = "0.14.1"
 
 [features]
-verify_owner = []
+runtime_checks = []
 default = ["runtime_checks"]
