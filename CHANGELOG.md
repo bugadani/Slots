@@ -1,5 +1,6 @@
 Unreleased
 ==========
+* Add `UnrestrictedSlots` with relaxed access control [@chrysn] [@bugadani]
 * Implement read-only `.iter()` [@bugadani]
 * Implement `Default` for `Slots` [@bugadani]
 
