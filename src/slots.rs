@@ -230,16 +230,53 @@ where
     fn verify_key(&self, _key: &Key<IT, N>) {}
 
     /// Returns the number of slots
+    ///
+    /// ```
+    /// # use slots::slots::Slots;
+    /// # use slots::consts::U4;
+    /// let slots: Slots<f32, U4> = Slots::new();
+    ///
+    /// assert_eq!(4, slots.capacity());
+    /// ```
     pub fn capacity(&self) -> usize {
         N::to_usize()
     }
 
     /// Returns the number of occupied slots
+    ///
+    /// ```
+    /// # use slots::slots::Slots;
+    /// # use slots::consts::U4;
+    /// let mut slots: Slots<_, U4> = Slots::new();
+    ///
+    /// assert_eq!(0, slots.count());
+    ///
+    /// slots.store(3).unwrap();
+    /// slots.store(6).unwrap();
+    ///
+    /// assert_eq!(2, slots.count());
+    /// ```
     pub fn count(&self) -> usize {
         self.inner.count()
     }
 
-    /// Returns whether all the slots are occupied and the next store() will fail.
+    /// Returns whether all the slots are occupied and the next [`store()`](#method.store) will fail.
+    ///
+    /// ```
+    /// # use slots::slots::Slots;
+    /// # use slots::consts::U4;
+    /// let mut slots: Slots<_, U4> = Slots::new();
+    ///
+    /// slots.store(3).unwrap();
+    /// slots.store(4).unwrap();
+    /// slots.store(5).unwrap();
+    ///
+    /// assert_eq!(false, slots.is_full());
+    ///
+    /// slots.store(6).unwrap();
+    ///
+    /// assert_eq!(true, slots.is_full());
+    /// ```
     pub fn is_full(&self) -> bool {
         self.inner.is_full()
     }
