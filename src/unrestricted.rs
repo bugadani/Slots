@@ -1,3 +1,14 @@
+//! Slots object that provides an unrestricted access control for the stored data.
+//!
+//! Data type that stores values and returns an index that can be used to manipulate
+//! the stored values.
+//!
+//! As opposed to [`Slots`](../slots/index.html), it's not guaranteed that the accessed slot has valid data.
+//! For this reason, the data access methods are always fallible, meaning they return
+//! None when a free slot is addressed.
+//!
+//! This structure is also susceptible to the [ABA problem](https://en.wikipedia.org/wiki/ABA_problem).
+
 use core::mem::replace;
 use generic_array::{sequence::GenericSequence, ArrayLength, GenericArray};
 
@@ -8,6 +19,13 @@ use crate::private::Entry;
 pub trait Size<I>: ArrayLength<Entry<I>> {}
 impl<T, I> Size<I> for T where T: ArrayLength<Entry<I>> {}
 
+/// Slots object that provides an unrestricted access control for the stored data.
+///
+/// The struct has two type parameters:
+///  - `IT` is the type of the stored data
+///  - `N` is the number of slots, which is a type-level constant provided by the `typenum` crate.
+///
+/// For more information, see the [module level documentation](./index.html)
 pub struct UnrestrictedSlots<IT, N>
 where
     N: Size<IT>,
@@ -30,7 +48,7 @@ impl<IT, N> UnrestrictedSlots<IT, N>
 where
     N: Size<IT>,
 {
-    /// Creates a new, empty Slots object.
+    /// Creates a new, empty UnrestrictedSlots object.
     pub fn new() -> Self {
         Self {
             items: GenericArray::generate(|i| {
@@ -51,6 +69,10 @@ where
         Iter::from_iter(self.items.as_slice())
     }
 
+    /// Returns a read-write iterator.
+    /// The iterator can be used to read and modify data from all occupied slots, but it can't remove data.
+    ///
+    /// **Note:** Do not rely on the order in which the elements are returned.
     pub fn iter_mut(&mut self) -> IterMut<IT> {
         IterMut::from_iter(self.items.as_mut_slice())
     }
@@ -65,14 +87,15 @@ where
         self.count
     }
 
-    fn full(&self) -> bool {
+    /// Returns whether all the slots are occupied and the next store() will fail.
+    pub fn is_full(&self) -> bool {
         self.count == self.capacity()
     }
 
     fn free(&mut self, idx: usize) {
         debug_assert!(self.count != 0, "Free called on an empty collection");
 
-        self.items[idx] = if self.full() {
+        self.items[idx] = if self.is_full() {
             Entry::EmptyLast
         } else {
             Entry::EmptyNext(self.next_free)
@@ -83,7 +106,7 @@ where
     }
 
     fn alloc(&mut self) -> Option<usize> {
-        if self.full() {
+        if self.is_full() {
             // no free slot
             None
         } else {
@@ -101,6 +124,9 @@ where
     }
 
     /// Store an element in a free slot and return the key to access it.
+    ///
+    /// Storing a variable takes ownership over it. If the storage is full,
+    /// the ownership is returned in the return value.
     pub fn store(&mut self, item: IT) -> Result<usize, IT> {
         match self.alloc() {
             Some(i) => {
