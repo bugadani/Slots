@@ -8,7 +8,7 @@ pub struct Iter<'a, IT> {
 impl<'a, IT> Iter<'a, IT> {
     pub(crate) fn from_entry_slice(inner: &'a [Entry<IT>]) -> Self {
         Self {
-            inner: inner.into_iter(),
+            inner: inner.iter(),
         }
     }
 }
