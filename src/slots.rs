@@ -311,6 +311,18 @@ where
     ///
     /// This operation does not move ownership so the `function` callback must be used
     /// to access the stored element. The callback may return arbitrary derivative of the element.
+    ///
+    /// ```
+    /// # use slots::slots::Slots;
+    /// # use slots::consts::U4;
+    /// # let mut slots: Slots<_, U4> = Slots::new();
+    ///
+    /// let k = slots.store(3).unwrap();
+    ///
+    /// assert_eq!(4, slots.read(&k, |elem| {
+    ///     elem + 1
+    /// }));
+    /// ```
     pub fn read<T>(&self, key: &Key<IT, N>, function: impl FnOnce(&IT) -> T) -> T {
         self.verify_key(&key);
 
@@ -322,14 +334,52 @@ where
     ///
     /// This operation does not move ownership so the `function` callback must be used
     /// to access the stored element. The callback may return arbitrary derivative of the element.
-    pub fn try_read<T>(&self, key: usize, function: impl FnOnce(&IT) -> T) -> Option<T> {
-        self.inner.read(key, function)
+    ///
+    /// This operation is fallible. If `index` addresses a free slot, `None` is returned.
+    ///
+    /// ```
+    /// # use slots::slots::Slots;
+    /// # use slots::consts::U4;
+    /// # let mut slots: Slots<_, U4> = Slots::new();
+    ///
+    /// let k = slots.store(3).unwrap();
+    /// let idx = k.index();
+    ///
+    /// assert_eq!(Some(4), slots.try_read(idx, |elem| {
+    ///     elem + 1
+    /// }));
+    ///
+    /// slots.take(k);
+    ///
+    /// assert_eq!(None, slots.try_read(idx, |elem| {
+    ///     elem + 1
+    /// }));
+    /// ```
+    pub fn try_read<T>(&self, index: usize, function: impl FnOnce(&IT) -> T) -> Option<T> {
+        self.inner.read(index, function)
     }
 
     /// Access the element that belongs to the key for modification.
     ///
     /// This operation does not move ownership so the `function` callback must be used
     /// to access the stored element. The callback may return arbitrary derivative of the element.
+    ///
+    /// ```
+    /// # use slots::slots::Slots;
+    /// # use slots::consts::U4;
+    /// # let mut slots: Slots<_, U4> = Slots::new();
+    ///
+    /// let k = slots.store(3).unwrap();
+    ///
+    /// assert_eq!("found", slots.modify(&k, |elem| {
+    ///     *elem = *elem + 1;
+    ///
+    ///     "found"
+    /// }));
+    ///
+    /// // Assert that the stored data was modified
+    /// assert_eq!(4, slots.take(k));
+    /// ```
     pub fn modify<T>(&mut self, key: &Key<IT, N>, function: impl FnOnce(&mut IT) -> T) -> T {
         self.verify_key(&key);
 

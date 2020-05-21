@@ -224,6 +224,8 @@ where
     }
 
     /// Remove and return the element that belongs to the key.
+    ///
+    /// This operation is fallible. If `key` addresses a free slot, `None` is returned.
     pub fn take(&mut self, key: usize) -> Option<IT> {
         if let Entry::Used(item) = replace(&mut self.items[key], Entry::EmptyLast) {
             self.free(key);
@@ -238,6 +240,26 @@ where
     ///
     /// This operation does not move ownership so the `function` callback must be used
     /// to access the stored element. The callback may return arbitrary derivative of the element.
+    ///
+    /// This operation is fallible. If `key` addresses a free slot, `None` is returned.
+    ///
+    /// ```
+    /// # use slots::unrestricted::UnrestrictedSlots;
+    /// # use slots::consts::U4;
+    /// # let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    ///
+    /// let k = slots.store(3).unwrap();
+    ///
+    /// assert_eq!(Some(4), slots.read(k, |elem| {
+    ///     elem + 1
+    /// }));
+    ///
+    /// slots.take(k);
+    ///
+    /// assert_eq!(None, slots.read(k, |elem| {
+    ///     elem + 1
+    /// }));
+    /// ```
     pub fn read<T>(&self, key: usize, function: impl FnOnce(&IT) -> T) -> Option<T> {
         if key >= self.capacity() {
             None
@@ -253,6 +275,31 @@ where
     ///
     /// This operation does not move ownership so the `function` callback must be used
     /// to access the stored element. The callback may return arbitrary derivative of the element.
+    ///
+    /// This operation is fallible. If `key` addresses a free slot, `None` is returned.
+    ///
+    /// ```
+    /// # use slots::unrestricted::UnrestrictedSlots;
+    /// # use slots::consts::U4;
+    /// # let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    ///
+    /// let k = slots.store(3).unwrap();
+    ///
+    /// assert_eq!(Some("found"), slots.modify(k, |elem| {
+    ///     *elem = *elem + 1;
+    ///
+    ///     "found"
+    /// }));
+    ///
+    /// // Assert that the stored data was modified
+    /// assert_eq!(Some(4), slots.take(k));
+    ///
+    /// assert_eq!(None, slots.modify(k, |elem| {
+    ///     *elem = *elem + 1;
+    ///
+    ///     "found"
+    /// }));
+    /// ```
     pub fn modify<T>(&mut self, key: usize, function: impl FnOnce(&mut IT) -> T) -> Option<T> {
         match self.items[key] {
             Entry::Used(ref mut item) => Some(function(item)),
