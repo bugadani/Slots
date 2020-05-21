@@ -13,19 +13,6 @@ impl<'a, IT> Iter<'a, IT> {
     }
 }
 
-/// Read-write iterator to access all occupied slots.
-pub struct IterMut<'a, IT> {
-    inner: core::slice::IterMut<'a, Entry<IT>>,
-}
-
-impl<'a, IT> IterMut<'a, IT> {
-    pub fn from_iter(inner: &'a mut [Entry<IT>]) -> Self {
-        Self {
-            inner: inner.iter_mut(),
-        }
-    }
-}
-
 impl<'a, IT> Iterator for Iter<'a, IT> {
     type Item = &'a IT;
 
@@ -36,6 +23,19 @@ impl<'a, IT> Iterator for Iter<'a, IT> {
             }
         }
         None
+    }
+}
+
+/// Read-write iterator to access all occupied slots.
+pub struct IterMut<'a, IT> {
+    inner: core::slice::IterMut<'a, Entry<IT>>,
+}
+
+impl<'a, IT> IterMut<'a, IT> {
+    pub fn from_iter(inner: &'a mut [Entry<IT>]) -> Self {
+        Self {
+            inner: inner.iter_mut(),
+        }
     }
 }
 
