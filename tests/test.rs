@@ -96,7 +96,7 @@ fn store_returns_err_when_full() {
 }
 
 #[test]
-#[cfg(feature = "verify_owner")]
+#[cfg(feature = "runtime_checks")]
 #[should_panic(expected = "Key used in wrong instance")]
 fn use_across_slots_verify() {
     let mut a: Slots<u8, U4> = Slots::new();
@@ -110,7 +110,7 @@ fn use_across_slots_verify() {
 }
 
 #[test]
-#[cfg(not(feature = "verify_owner"))]
+#[cfg(not(feature = "runtime_checks"))]
 fn use_across_slots_no_verify() {
     let mut a: Slots<u8, U4> = Slots::new();
     let mut b: Slots<u8, U4> = Slots::new();
@@ -146,7 +146,7 @@ fn is_compact() {
     assert_eq!(core::mem::size_of::<TwoNichesIn16Byte>(), 16);
 
     let mut expected_size = 32 * 16 + 2 * core::mem::size_of::<usize>();
-    if cfg!(feature = "verify_owner") {
+    if cfg!(feature = "runtime_checks") {
         expected_size += core::mem::size_of::<usize>(); // an extra usize for object id
     }
     assert_eq!(

@@ -9,7 +9,7 @@ Slots implements a static friendly, fixed size, unordered data structure inspire
 
 Features
 ========
- * Slots provide the `verify_owner` feature that can be used to disable key owner verification.
+ * Slots provide the `runtime_checks` feature that can be used to disable key owner verification.
    By default the feature is on and it is recommended to leave it enabled for development builds and disabled for release builds.
 
    *Note: This feature requires atomic instructions, which are not generally available (for example, on ARM Cortex-M0 microcontrollers)*

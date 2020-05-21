@@ -1,5 +1,6 @@
 Unreleased
 ==========
+* Rename `verify_owner` feature flag to `runtime_checks` [@bugadani]
 * Add `UnrestrictedSlots` with relaxed access control [@chrysn] [@bugadani]
 * Implement read-only `.iter()` [@bugadani]
 * Implement `Default` for `Slots` [@bugadani]

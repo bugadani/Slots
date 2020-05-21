@@ -145,10 +145,10 @@ pub use crate::unrestricted::Size;
 /// The key used to access stored elements.
 ///
 /// **Important:** It should only be used to access the same collection that returned it.
-/// When the `verify_owner` feature is disabled, extra care must be taken to ensure this constraint.
+/// When the `runtime_checks` feature is disabled, extra care must be taken to ensure this constraint.
 #[derive(Debug)]
 pub struct Key<IT, N> {
-    #[cfg(feature = "verify_owner")]
+    #[cfg(feature = "runtime_checks")]
     owner_id: usize,
     index: usize,
     _item_marker: PhantomData<IT>,
@@ -161,7 +161,7 @@ impl<IT, N> Key<IT, N> {
         N: Size<IT>,
     {
         Self {
-            #[cfg(feature = "verify_owner")]
+            #[cfg(feature = "runtime_checks")]
             owner_id: owner.id,
             index: idx,
             _item_marker: PhantomData,
@@ -186,12 +186,12 @@ pub struct Slots<IT, N>
 where
     N: Size<IT>,
 {
-    #[cfg(feature = "verify_owner")]
+    #[cfg(feature = "runtime_checks")]
     id: usize,
     inner: UnrestrictedSlots<IT, N>,
 }
 
-#[cfg(feature = "verify_owner")]
+#[cfg(feature = "runtime_checks")]
 fn new_instance_id() -> usize {
     use core::sync::atomic::{AtomicUsize, Ordering};
 
@@ -207,7 +207,7 @@ where
     /// Creates a new, empty Slots object.
     pub fn new() -> Self {
         Self {
-            #[cfg(feature = "verify_owner")]
+            #[cfg(feature = "runtime_checks")]
             id: new_instance_id(),
             inner: UnrestrictedSlots::new(),
         }
@@ -232,12 +232,12 @@ where
         self.inner.iter()
     }
 
-    #[cfg(feature = "verify_owner")]
+    #[cfg(feature = "runtime_checks")]
     fn verify_key(&self, key: &Key<IT, N>) {
         assert_eq!(key.owner_id, self.id, "Key used in wrong instance");
     }
 
-    #[cfg(not(feature = "verify_owner"))]
+    #[cfg(not(feature = "runtime_checks"))]
     fn verify_key(&self, _key: &Key<IT, N>) {}
 
     /// Returns the number of slots
