@@ -100,7 +100,7 @@ where
     /// assert_eq!(true, slots.iter().any(|&x| x < 3));
     /// ```
     pub fn iter(&self) -> Iter<IT> {
-        Iter::from_iter(self.items.as_slice())
+        Iter::from_entry_slice(self.items.as_slice())
     }
 
     /// Returns a read-write iterator.
@@ -123,7 +123,7 @@ where
     /// assert_eq!(4, slots.take(k).unwrap());
     /// ```
     pub fn iter_mut(&mut self) -> IterMut<IT> {
-        IterMut::from_iter(self.items.as_mut_slice())
+        IterMut::from_entry_slice(self.items.as_mut_slice())
     }
 
     /// Returns the number of slots

@@ -6,7 +6,7 @@ pub struct Iter<'a, IT> {
 }
 
 impl<'a, IT> Iter<'a, IT> {
-    pub fn from_iter(inner: &'a [Entry<IT>]) -> Self {
+    pub(crate) fn from_entry_slice(inner: &'a [Entry<IT>]) -> Self {
         Self {
             inner: inner.into_iter(),
         }
@@ -32,7 +32,7 @@ pub struct IterMut<'a, IT> {
 }
 
 impl<'a, IT> IterMut<'a, IT> {
-    pub fn from_iter(inner: &'a mut [Entry<IT>]) -> Self {
+    pub(crate) fn from_entry_slice(inner: &'a mut [Entry<IT>]) -> Self {
         Self {
             inner: inner.iter_mut(),
         }
