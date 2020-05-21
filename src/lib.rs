@@ -25,7 +25,7 @@
 //! // Now that the collection is full, the next store will fail and
 //! // return an Err object that holds the original value we wanted to store.
 //! let k3 = slots.store(8);
-//! assert_eq!(k3, Err(8));
+//! assert_eq!(k3.err(), Some(8));
 //!
 //! // Storage statistics
 //! assert_eq!(2, slots.capacity()); // this instance can hold at most 2 elements
@@ -145,11 +145,11 @@ use private::Entry;
 
 pub use generic_array::typenum::consts;
 
-#[derive(Debug, PartialEq)]
 /// The key used to access stored elements.
 ///
 /// **Important:** It should only be used to access the same collection that returned it.
 /// When the `verify_owner` feature is disabled, extra care must be taken to ensure this constraint.
+#[derive(Debug)]
 pub struct Key<IT, N> {
     #[cfg(feature = "verify_owner")]
     owner_id: usize,
