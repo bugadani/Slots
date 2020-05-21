@@ -1,7 +1,7 @@
 //! This crate provides a heapless, fixed size, unordered data structure, inspired by SlotMap.
 //!
 //! The following basic operations (all of them `O(1)`) are defined for Slots:
-//! - Insert: store data and retrieve a handle for later access
+//! - Store: store data and retrieve a handle for later access
 //! - Read, modify: use the given handle to access the data without removal
 //! - Take: use the given handle to remove data
 //!
