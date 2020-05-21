@@ -1,4 +1,4 @@
-Unreleased
+0.3..0
 ==========
 * Rename `verify_owner` feature flag to `runtime_checks` [@bugadani]
 * Add `UnrestrictedSlots` with relaxed access control [@chrysn] [@bugadani]
