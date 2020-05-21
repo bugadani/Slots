@@ -1,8 +1,8 @@
 use core::mem::replace;
 use generic_array::{sequence::GenericSequence, ArrayLength, GenericArray};
 
-use crate::private::Entry;
 use crate::iterator::*;
+use crate::private::Entry;
 
 /// Alias of [`ArrayLength`](../generic_array/trait.ArrayLength.html)
 pub trait Size<I>: ArrayLength<Entry<I>> {}

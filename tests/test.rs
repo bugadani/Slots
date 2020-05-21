@@ -1,5 +1,5 @@
 use slots::consts::*;
-use slots::Slots;
+use slots::slots::Slots;
 
 #[test]
 fn key_can_be_used_to_read_value() {

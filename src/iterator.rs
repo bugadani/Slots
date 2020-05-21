@@ -8,7 +8,7 @@ pub struct Iter<'a, IT> {
 impl<'a, IT> Iter<'a, IT> {
     pub fn from_iter(inner: &'a [Entry<IT>]) -> Self {
         Self {
-            inner: inner.into_iter()
+            inner: inner.into_iter(),
         }
     }
 }
@@ -21,7 +21,7 @@ pub struct IterMut<'a, IT> {
 impl<'a, IT> IterMut<'a, IT> {
     pub fn from_iter(inner: &'a mut [Entry<IT>]) -> Self {
         Self {
-            inner: inner.iter_mut()
+            inner: inner.iter_mut(),
         }
     }
 }
@@ -54,7 +54,7 @@ impl<'a, IT> Iterator for IterMut<'a, IT> {
 
 #[cfg(test)]
 mod iter_test {
-    use crate::{consts::U3, Slots, UnrestrictedSlots};
+    use crate::{consts::U3, slots::Slots, unrestricted::UnrestrictedSlots};
 
     #[test]
     fn sanity_check() {
