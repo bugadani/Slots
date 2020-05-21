@@ -3,11 +3,42 @@
 //! Data type that stores values and returns an index that can be used to manipulate
 //! the stored values.
 //!
-//! As opposed to [`Slots`](../slots/index.html), it's not guaranteed that the accessed slot has valid data.
+//! Unlike [`Slots`], it's not guaranteed that the accessed slot has valid data.
 //! For this reason, the data access methods are always fallible, meaning they return
 //! None when a free slot is addressed.
 //!
 //! This structure is also susceptible to the [ABA problem](https://en.wikipedia.org/wiki/ABA_problem).
+//!
+//! # Store data
+//!
+//! When a piece of data is stored in the collection, a handle is returned. This handle
+//! identifies the slot and can be used to access the data. Unlike with [`Slots`], this
+//! handle is a `usize` which can be freely copied and shared.
+//!
+//! There should be no assumptions made on the value of the handle, except that it is `0 <= handle < N`
+//! where N is the capacity.
+//!
+//! ```rust
+//! use slots::unrestricted::UnrestrictedSlots;
+//! use slots::consts::U2;
+//!
+//! let mut slots: UnrestrictedSlots<_, U2> = UnrestrictedSlots::new(); // Capacity of 2 elements
+//!
+//! // Store elements
+//! let k1 = slots.store(2).unwrap();
+//! let k2 = slots.store(4).unwrap();
+//!
+//! // Now that the collection is full, the next store will fail and
+//! // return an Err object that holds the original value we wanted to store.
+//! let k3 = slots.store(8);
+//! assert_eq!(k3.err(), Some(8));
+//!
+//! // Storage statistics
+//! assert_eq!(2, slots.capacity()); // this instance can hold at most 2 elements
+//! assert_eq!(2, slots.count()); // there are currently 2 elements stored
+//! ```
+//!
+//! [`Slots`]: ../slots/index.html
 
 use core::mem::replace;
 use generic_array::{sequence::GenericSequence, ArrayLength, GenericArray};
