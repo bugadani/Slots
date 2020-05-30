@@ -129,12 +129,12 @@
 //! }
 //! ```
 //!
-//! [`Key`]: ./struct.Key.html
-//! [`Size`]: ../unrestricted/trait.Size.html
-//! [`index`]: ./struct.Key.html#method.index
-//! [`take`]: ./struct.Slots.html#method.take
-//! [`read`]: ./struct.Slots.html#method.read
-//! [`modify`]: ./struct.Slots.html#method.modify
+//! [`Key`]: crate::slots::Key
+//! [`Size`]: crate::unrestricted::Size
+//! [`index`]: crate::slots::Key::index
+//! [`take`]: crate::slots::Slots::take
+//! [`read`]: crate::slots::Slots::read
+//! [`modify`]: crate::slots::Slots::modify
 use core::marker::PhantomData;
 
 use crate::iterator::Iter;

@@ -7,7 +7,7 @@
 //! For this reason, the data access methods are always fallible, meaning they return
 //! None when a free slot is addressed.
 //!
-//! This structure is also susceptible to the [ABA problem](https://en.wikipedia.org/wiki/ABA_problem).
+//! This structure is also susceptible to the [ABA problem][aba-problem].
 //!
 //! # Store data
 //!
@@ -38,7 +38,8 @@
 //! assert_eq!(2, slots.count()); // there are currently 2 elements stored
 //! ```
 //!
-//! [`Slots`]: ../slots/index.html
+//! [`Slots`]: crate::slots
+//! [aba-problem]: https://en.wikipedia.org/wiki/ABA_problem
 
 use core::mem::replace;
 use generic_array::{sequence::GenericSequence, ArrayLength, GenericArray};
@@ -56,7 +57,7 @@ impl<T, I> Size<I> for T where T: ArrayLength<Entry<I>> {}
 ///  - `IT` is the type of the stored data
 ///  - `N` is the number of slots, which is a type-level constant provided by the `typenum` crate.
 ///
-/// For more information, see the [module level documentation](./index.html)
+/// For more information, see the [module level documentation](crate::unrestricted)
 #[derive(Default)]
 pub struct UnrestrictedSlots<IT, N>
 where
@@ -157,7 +158,7 @@ where
         self.count
     }
 
-    /// Returns whether all the slots are occupied and the next [`store()`](#method.store) will fail.
+    /// Returns whether all the slots are occupied and the next [`store()`](UnrestrictedSlots::store) will fail.
     ///
     /// ```
     /// # use slots::unrestricted::UnrestrictedSlots;

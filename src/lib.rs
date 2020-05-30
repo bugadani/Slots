@@ -6,8 +6,8 @@
 //! - Take: use the given handle to remove data
 //!
 //! There are two variations of this data structure:
-//!  * [`Slots`](./slots/index.html), where elements can only be modified using a `Key` that can't be copied
-//!  * [`UnrestrictedSlots`](./unrestricted/index.html), where elements are free to be modified by anyone
+//!  * [`Slots`][crate::slots], where elements can only be modified using a `Key` that can't be copied
+//!  * [`UnrestrictedSlots`][crate::unrestricted], where elements are free to be modified by anyone
 
 #![cfg_attr(not(test), no_std)]
 
