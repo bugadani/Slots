@@ -252,8 +252,8 @@ impl<IT, const N: usize> UnrestrictedSlots<IT, N> {
         if key >= self.capacity() {
             None
         } else {
-            match &self.items[key] {
-                Entry::Used(item) => Some(function(&item)),
+            match self.items[key] {
+                Entry::Used(ref item) => Some(function(item)),
                 _ => None,
             }
         }

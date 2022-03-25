@@ -17,7 +17,7 @@ impl<'a, IT> Iterator for Iter<'a, IT> {
     type Item = &'a IT;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(slot) = self.inner.next() {
+        for slot in self.inner.by_ref() {
             if let Entry::Used(ref item) = slot {
                 return Some(item);
             }
@@ -43,7 +43,7 @@ impl<'a, IT> Iterator for IterMut<'a, IT> {
     type Item = &'a mut IT;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(slot) = self.inner.next() {
+        for slot in self.inner.by_ref() {
             if let Entry::Used(ref mut item) = slot {
                 return Some(item);
             }

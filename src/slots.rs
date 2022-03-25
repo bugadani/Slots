@@ -285,7 +285,7 @@ impl<IT, const N: usize> Slots<IT, N> {
     /// }));
     /// ```
     pub fn read<T>(&self, key: &Key<IT, N>, function: impl FnOnce(&IT) -> T) -> T {
-        self.verify_key(&key);
+        self.verify_key(key);
 
         self.inner.read(key.index, function).expect("Invalid key")
     }
@@ -340,7 +340,7 @@ impl<IT, const N: usize> Slots<IT, N> {
     /// assert_eq!(4, slots.take(k));
     /// ```
     pub fn modify<T>(&mut self, key: &Key<IT, N>, function: impl FnOnce(&mut IT) -> T) -> T {
-        self.verify_key(&key);
+        self.verify_key(key);
 
         self.inner.modify(key.index, function).expect("Invalid key")
     }
