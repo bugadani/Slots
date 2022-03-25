@@ -20,9 +20,8 @@
 //!
 //! ```rust
 //! use slots::unrestricted::UnrestrictedSlots;
-//! use slots::consts::U2;
 //!
-//! let mut slots: UnrestrictedSlots<_, U2> = UnrestrictedSlots::new(); // Capacity of 2 elements
+//! let mut slots: UnrestrictedSlots<_, 2> = UnrestrictedSlots::new(); // Capacity of 2 elements
 //!
 //! // Store elements
 //! let k1 = slots.store(2).unwrap();
@@ -42,45 +41,39 @@
 //! [aba-problem]: https://en.wikipedia.org/wiki/ABA_problem
 
 use core::mem::replace;
-use generic_array::{sequence::GenericSequence, ArrayLength, GenericArray};
 
 use crate::iterator::*;
 use crate::private::Entry;
-
-/// Alias of [`ArrayLength`](../generic_array/trait.ArrayLength.html)
-pub trait Size<I>: ArrayLength<Entry<I>> {}
-impl<T, I> Size<I> for T where T: ArrayLength<Entry<I>> {}
 
 /// Slots object that provides an unrestricted access control for the stored data.
 ///
 /// The struct has two type parameters:
 ///  - `IT` is the type of the stored data
-///  - `N` is the number of slots, which is a type-level constant provided by the `typenum` crate.
+///  - `N` is the number of slots.
 ///
 /// For more information, see the [module level documentation](crate::unrestricted)
-#[derive(Default)]
-pub struct UnrestrictedSlots<IT, N>
-where
-    N: Size<IT>,
-{
-    items: GenericArray<Entry<IT>, N>,
+pub struct UnrestrictedSlots<IT, const N: usize> {
+    items: [Entry<IT>; N],
     next_free: usize,
     count: usize,
 }
 
-impl<IT, N> UnrestrictedSlots<IT, N>
-where
-    N: Size<IT>,
-{
+impl<IT, const N: usize> Default for UnrestrictedSlots<IT, N> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<IT, const N: usize> UnrestrictedSlots<IT, N> {
     /// Creates a new, empty UnrestrictedSlots object.
     pub fn new() -> Self {
         Self {
-            items: GenericArray::generate(|i| {
+            items: array_init::array_init(|i| {
                 i.checked_sub(1)
                     .map(Entry::EmptyNext)
                     .unwrap_or(Entry::EmptyLast)
             }),
-            next_free: N::USIZE.saturating_sub(1), // edge case: N == 0
+            next_free: N.saturating_sub(1), // edge case: N == 0
             count: 0,
         }
     }
@@ -92,8 +85,7 @@ where
     ///
     /// ```
     /// # use slots::unrestricted::UnrestrictedSlots;
-    /// # use slots::consts::U4;
-    /// # let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    /// # let mut slots: UnrestrictedSlots<_, 4> = UnrestrictedSlots::new();
     /// slots.store(2).unwrap();
     /// slots.store(4).unwrap();
     /// slots.store(6).unwrap();
@@ -111,8 +103,7 @@ where
     ///
     /// ```
     /// # use slots::unrestricted::UnrestrictedSlots;
-    /// # use slots::consts::U4;
-    /// # let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    /// # let mut slots: UnrestrictedSlots<_, 4> = UnrestrictedSlots::new();
     /// let k = slots.store(2).unwrap();
     /// slots.store(4).unwrap();
     /// slots.store(6).unwrap();
@@ -131,21 +122,19 @@ where
     ///
     /// ```
     /// # use slots::unrestricted::UnrestrictedSlots;
-    /// # use slots::consts::U4;
-    /// let slots: UnrestrictedSlots<f32, U4> = UnrestrictedSlots::new();
+    /// let slots: UnrestrictedSlots<f32, 4> = UnrestrictedSlots::new();
     ///
     /// assert_eq!(4, slots.capacity());
     /// ```
     pub fn capacity(&self) -> usize {
-        N::USIZE
+        N
     }
 
     /// Returns the number of occupied slots
     ///
     /// ```
     /// # use slots::unrestricted::UnrestrictedSlots;
-    /// # use slots::consts::U4;
-    /// let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    /// let mut slots: UnrestrictedSlots<_, 4> = UnrestrictedSlots::new();
     ///
     /// assert_eq!(0, slots.count());
     ///
@@ -162,8 +151,7 @@ where
     ///
     /// ```
     /// # use slots::unrestricted::UnrestrictedSlots;
-    /// # use slots::consts::U4;
-    /// let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    /// let mut slots: UnrestrictedSlots<_, 4> = UnrestrictedSlots::new();
     ///
     /// slots.store(3).unwrap();
     /// slots.store(4).unwrap();
@@ -246,8 +234,7 @@ where
     ///
     /// ```
     /// # use slots::unrestricted::UnrestrictedSlots;
-    /// # use slots::consts::U4;
-    /// # let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    /// # let mut slots: UnrestrictedSlots<_, 4> = UnrestrictedSlots::new();
     ///
     /// let k = slots.store(3).unwrap();
     ///
@@ -281,8 +268,7 @@ where
     ///
     /// ```
     /// # use slots::unrestricted::UnrestrictedSlots;
-    /// # use slots::consts::U4;
-    /// # let mut slots: UnrestrictedSlots<_, U4> = UnrestrictedSlots::new();
+    /// # let mut slots: UnrestrictedSlots<_, 4> = UnrestrictedSlots::new();
     ///
     /// let k = slots.store(3).unwrap();
     ///

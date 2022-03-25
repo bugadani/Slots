@@ -1,11 +1,11 @@
 [package]
 name = "slots"
-version = "0.3.1"
+version = "0.4.0"
 license = "MIT"
 repository = "https://github.com/bugadani/Slots"
 description = "Fixed size data structure with constant-time operations"
 authors = ["Dániel Buga <bugadani@gmail.com>"]
-edition = "2018"
+edition = "2021"
 categories = [
     "data-structures",
     "no-std"
@@ -15,7 +15,7 @@ exclude = [
 ]
 
 [dependencies]
-generic-array = "0.14.1"
+array-init = "2"
 
 [features]
 runtime_checks = []

@@ -54,11 +54,11 @@ impl<'a, IT> Iterator for IterMut<'a, IT> {
 
 #[cfg(test)]
 mod iter_test {
-    use crate::{consts::U3, slots::Slots, unrestricted::UnrestrictedSlots};
+    use crate::{slots::Slots, unrestricted::UnrestrictedSlots};
 
     #[test]
     fn sanity_check() {
-        let mut slots: Slots<_, U3> = Slots::new();
+        let mut slots: Slots<_, 3> = Slots::new();
 
         let _k1 = slots.store(1).unwrap();
         let k2 = slots.store(2).unwrap();
@@ -77,7 +77,7 @@ mod iter_test {
 
     #[test]
     fn test_mut() {
-        let mut slots: UnrestrictedSlots<_, U3> = UnrestrictedSlots::new();
+        let mut slots: UnrestrictedSlots<_, 3> = UnrestrictedSlots::new();
 
         let _k1 = slots.store(1).unwrap();
         let k2 = slots.store(2).unwrap();

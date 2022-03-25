@@ -1,9 +1,8 @@
-use slots::consts::*;
 use slots::slots::Slots;
 
 #[test]
 fn key_can_be_used_to_read_value() {
-    let mut slots: Slots<_, U8> = Slots::new();
+    let mut slots: Slots<_, 8> = Slots::new();
     let k1 = slots.store(5).unwrap();
 
     assert_eq!(5, slots.read(&k1, |&w| w));
@@ -11,7 +10,7 @@ fn key_can_be_used_to_read_value() {
 
 #[test]
 fn size_can_be_1() {
-    let mut slots: Slots<_, U1> = Slots::new();
+    let mut slots: Slots<_, 1> = Slots::new();
     let k1 = slots.store(5).unwrap();
 
     assert_eq!(5, slots.read(&k1, |&w| w));
@@ -27,7 +26,7 @@ fn size_can_be_1() {
 
 #[test]
 fn cant_read_outside_bounds() {
-    let mut slots: Slots<_, U1> = Slots::new();
+    let mut slots: Slots<_, 1> = Slots::new();
     let _k1 = slots.store(5).unwrap();
 
     assert!(slots.try_read(slots.capacity(), |_| 0).is_none());
@@ -35,7 +34,7 @@ fn cant_read_outside_bounds() {
 
 #[test]
 fn index_can_be_used_to_read_value() {
-    let mut slots: Slots<_, U8> = Slots::new();
+    let mut slots: Slots<_, 8> = Slots::new();
 
     slots.store(5).unwrap();
     slots.store(6).unwrap();
@@ -48,14 +47,14 @@ fn index_can_be_used_to_read_value() {
 
 #[test]
 fn trying_to_read_missing_element_returns_none() {
-    let slots: Slots<u8, U8> = Slots::new();
+    let slots: Slots<u8, 8> = Slots::new();
 
     assert_eq!(None, slots.try_read(0, |&w| w));
 }
 
 #[test]
 fn trying_to_read_deleted_element_returns_none() {
-    let mut slots: Slots<u8, U8> = Slots::new();
+    let mut slots: Slots<u8, 8> = Slots::new();
 
     slots.store(5).unwrap();
     let k = slots.store(6).unwrap();
@@ -70,7 +69,7 @@ fn trying_to_read_deleted_element_returns_none() {
 
 #[test]
 fn elements_can_be_modified_using_key() {
-    let mut slots: Slots<u8, U8> = Slots::new();
+    let mut slots: Slots<u8, 8> = Slots::new();
 
     let k = slots.store(5).unwrap();
 
@@ -86,7 +85,7 @@ fn elements_can_be_modified_using_key() {
 
 #[test]
 fn store_returns_err_when_full() {
-    let mut slots: Slots<u8, U1> = Slots::new();
+    let mut slots: Slots<u8, 1> = Slots::new();
 
     slots.store(5).unwrap();
 
@@ -99,8 +98,8 @@ fn store_returns_err_when_full() {
 #[cfg(feature = "runtime_checks")]
 #[should_panic(expected = "Key used in wrong instance")]
 fn use_across_slots_verify() {
-    let mut a: Slots<u8, U4> = Slots::new();
-    let mut b: Slots<u8, U4> = Slots::new();
+    let mut a: Slots<u8, 4> = Slots::new();
+    let mut b: Slots<u8, 4> = Slots::new();
 
     let k = a.store(5).expect("There should be room");
     // Store an element in b so we don't get a different panic
@@ -112,8 +111,8 @@ fn use_across_slots_verify() {
 #[test]
 #[cfg(not(feature = "runtime_checks"))]
 fn use_across_slots_no_verify() {
-    let mut a: Slots<u8, U4> = Slots::new();
-    let mut b: Slots<u8, U4> = Slots::new();
+    let mut a: Slots<u8, 4> = Slots::new();
+    let mut b: Slots<u8, 4> = Slots::new();
 
     let k = a.store(5).expect("There should be room");
     // Store an element in b so we don't get a different panic
@@ -150,7 +149,7 @@ fn is_compact() {
         expected_size += core::mem::size_of::<usize>(); // an extra usize for object id
     }
     assert_eq!(
-        core::mem::size_of::<Slots<TwoNichesIn16Byte, U32>>(),
+        core::mem::size_of::<Slots<TwoNichesIn16Byte, 32>>(),
         expected_size,
         "Compiled size does not match expected"
     );
@@ -158,7 +157,7 @@ fn is_compact() {
 
 #[test]
 fn capacity_and_count() {
-    let mut slots: Slots<u8, U4> = Slots::new();
+    let mut slots: Slots<u8, 4> = Slots::new();
 
     assert_eq!(slots.capacity(), 4);
     assert_eq!(slots.count(), 0);
@@ -183,7 +182,7 @@ fn capacity_and_count() {
 
 #[test]
 fn zero_sized_collection() {
-    let mut slots: Slots<u8, U0> = Slots::new();
+    let mut slots: Slots<u8, 0> = Slots::new();
 
     assert_eq!(slots.capacity(), 0);
     assert_eq!(slots.count(), 0);

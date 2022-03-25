@@ -15,9 +15,8 @@
 //!
 //! ```rust
 //! use slots::slots::Slots;
-//! use slots::consts::U2;
 //!
-//! let mut slots: Slots<_, U2> = Slots::new(); // Capacity of 2 elements
+//! let mut slots: Slots<_, 2> = Slots::new(); // Capacity of 2 elements
 //!
 //! // Store elements
 //! let k1 = slots.store(2).unwrap();
@@ -42,9 +41,8 @@
 //!
 //! ```rust
 //! # use slots::slots::Slots;
-//! # use slots::consts::U2;
 //! #
-//! # let mut slots: Slots<_, U2> = Slots::new();
+//! # let mut slots: Slots<_, 2> = Slots::new();
 //! #
 //! # let k = slots.store(2).unwrap();
 //! # let _ = slots.store(4).unwrap();
@@ -61,9 +59,8 @@
 //!
 //! ```rust{compile_fail}
 //! # use slots::slots::Slots;
-//! # use slots::consts::U1;
 //! #
-//! # let mut slots: Slots<_, U1> = Slots::new();
+//! # let mut slots: Slots<_, 1> = Slots::new();
 //! #
 //! let k1 = slots.store(2).unwrap();
 //!
@@ -78,9 +75,8 @@
 //!
 //! ```rust
 //! # use slots::slots::Slots;
-//! # use slots::consts::U2;
 //! #
-//! # let mut slots: Slots<_, U2> = Slots::new();
+//! # let mut slots: Slots<_, 2> = Slots::new();
 //! #
 //! # let k1 = slots.store(2).unwrap();
 //! let k2 = slots.store(4).unwrap();
@@ -104,9 +100,8 @@
 //!
 //! ```rust
 //! # use slots::slots::Slots;
-//! # use slots::consts::U2;
 //! #
-//! # let mut slots: Slots<_, U2> = Slots::new();
+//! # let mut slots: Slots<_, 2> = Slots::new();
 //! let k1 = slots.store(2).unwrap();
 //! let idx = k1.index();
 //! slots.take(k1); // idx no longer points to valid data
@@ -114,23 +109,7 @@
 //! assert_eq!(None, slots.try_read(idx, |&e| e*2)); // reading from a freed slot fails
 //! ```
 //!
-//! # Passing around Slots
-//!
-//! When you need to work with arbitrarily sized Slots objects,
-//! you need to specify that the [`Size`] trait is implemented for
-//! the parameter N.
-//! ```
-//! use slots::slots::{Slots, Size, Key};
-//!
-//! fn examine<IT, N>(slots: &Slots<IT, N>, keys: &[Key<IT, N>])
-//!     where N: Size<IT>,
-//! {
-//!     unimplemented!();
-//! }
-//! ```
-//!
 //! [`Key`]: crate::slots::Key
-//! [`Size`]: crate::unrestricted::Size
 //! [`index`]: crate::slots::Key::index
 //! [`take`]: crate::slots::Slots::take
 //! [`read`]: crate::slots::Slots::read
@@ -140,32 +119,25 @@ use core::marker::PhantomData;
 use crate::iterator::Iter;
 use crate::unrestricted::UnrestrictedSlots;
 
-pub use crate::unrestricted::Size;
-
 /// The key used to access stored elements.
 ///
 /// **Important:** It should only be used to access the same collection that returned it.
 /// When the `runtime_checks` feature is disabled, extra care must be taken to ensure this constraint.
 #[derive(Debug)]
-pub struct Key<IT, N> {
+pub struct Key<IT, const N: usize> {
     #[cfg(feature = "runtime_checks")]
     owner_id: usize,
     index: usize,
     _item_marker: PhantomData<IT>,
-    _size_marker: PhantomData<N>,
 }
 
-impl<IT, N> Key<IT, N> {
-    fn new(owner: &Slots<IT, N>, idx: usize) -> Self
-    where
-        N: Size<IT>,
-    {
+impl<IT, const N: usize> Key<IT, N> {
+    fn new(owner: &Slots<IT, N>, idx: usize) -> Self {
         Self {
             #[cfg(feature = "runtime_checks")]
             owner_id: owner.id,
             index: idx,
             _item_marker: PhantomData,
-            _size_marker: PhantomData,
         }
     }
 
@@ -178,14 +150,11 @@ impl<IT, N> Key<IT, N> {
 ///
 /// The struct has two type parameters:
 ///  - `IT` is the type of the stored data
-///  - `N` is the number of slots, which is a type-level constant provided by the `typenum` crate.
+///  - `N` is the number of slots.
 ///
 /// For more information, see the [module level documentation](./index.html)
 #[derive(Default)]
-pub struct Slots<IT, N>
-where
-    N: Size<IT>,
-{
+pub struct Slots<IT, const N: usize> {
     #[cfg(feature = "runtime_checks")]
     id: usize,
     inner: UnrestrictedSlots<IT, N>,
@@ -200,10 +169,7 @@ fn new_instance_id() -> usize {
     COUNTER.fetch_add(1, Ordering::Relaxed)
 }
 
-impl<IT, N> Slots<IT, N>
-where
-    N: Size<IT>,
-{
+impl<IT, const N: usize> Slots<IT, N> {
     /// Creates a new, empty Slots object.
     pub fn new() -> Self {
         Self {
@@ -220,8 +186,7 @@ where
     ///
     /// ```
     /// # use slots::slots::Slots;
-    /// # use slots::consts::U4;
-    /// # let mut slots: Slots<_, U4> = Slots::new();
+    /// # let mut slots: Slots<_, 4> = Slots::new();
     /// slots.store(2).unwrap();
     /// slots.store(4).unwrap();
     /// slots.store(6).unwrap();
@@ -244,21 +209,19 @@ where
     ///
     /// ```
     /// # use slots::slots::Slots;
-    /// # use slots::consts::U4;
-    /// let slots: Slots<f32, U4> = Slots::new();
+    /// let slots: Slots<f32, 4> = Slots::new();
     ///
     /// assert_eq!(4, slots.capacity());
     /// ```
     pub fn capacity(&self) -> usize {
-        N::to_usize()
+        N
     }
 
     /// Returns the number of occupied slots
     ///
     /// ```
     /// # use slots::slots::Slots;
-    /// # use slots::consts::U4;
-    /// let mut slots: Slots<_, U4> = Slots::new();
+    /// let mut slots: Slots<_, 4> = Slots::new();
     ///
     /// assert_eq!(0, slots.count());
     ///
@@ -275,8 +238,7 @@ where
     ///
     /// ```
     /// # use slots::slots::Slots;
-    /// # use slots::consts::U4;
-    /// let mut slots: Slots<_, U4> = Slots::new();
+    /// let mut slots: Slots<_, 4> = Slots::new();
     ///
     /// slots.store(3).unwrap();
     /// slots.store(4).unwrap();
@@ -314,8 +276,7 @@ where
     ///
     /// ```
     /// # use slots::slots::Slots;
-    /// # use slots::consts::U4;
-    /// # let mut slots: Slots<_, U4> = Slots::new();
+    /// # let mut slots: Slots<_, 4> = Slots::new();
     ///
     /// let k = slots.store(3).unwrap();
     ///
@@ -339,8 +300,7 @@ where
     ///
     /// ```
     /// # use slots::slots::Slots;
-    /// # use slots::consts::U4;
-    /// # let mut slots: Slots<_, U4> = Slots::new();
+    /// # let mut slots: Slots<_, 4> = Slots::new();
     ///
     /// let k = slots.store(3).unwrap();
     /// let idx = k.index();
@@ -366,8 +326,7 @@ where
     ///
     /// ```
     /// # use slots::slots::Slots;
-    /// # use slots::consts::U4;
-    /// # let mut slots: Slots<_, U4> = Slots::new();
+    /// # let mut slots: Slots<_, 4> = Slots::new();
     ///
     /// let k = slots.store(3).unwrap();
     ///

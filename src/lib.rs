@@ -15,5 +15,3 @@ pub mod iterator;
 mod private;
 pub mod slots;
 pub mod unrestricted;
-
-pub use generic_array::typenum::consts;
